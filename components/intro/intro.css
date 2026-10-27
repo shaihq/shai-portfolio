@@ -1,0 +1,162 @@
+/*
+ * The machine's material: a warm graphite one step lighter than the page, from the
+ * same family as the chips and text greys. Light falls from the front left, so each
+ * face carries a soft falloff (gradients defined in macintosh.ts, colours here):
+ * tops brighten toward their front edge, fronts fade toward the floor, sides fade
+ * into shadow. Edges are a faint rim and one highlight along each top bevel; vents,
+ * seams and the handle are dark grooves cut into the surface. The lit screen stays
+ * the brightest thing.
+ */
+.iso.intro-overlay {
+  --anatomy-page: var(--loader-bg);
+  --anatomy-card: var(--loader-bg);
+  --anatomy-paper: #35383c;
+  --anatomy-face: #3c3f44;
+  --anatomy-top: #484c51;
+  --anatomy-shade-3: #3a3d42;
+  --anatomy-shade-2: #33363a;
+  --anatomy-shade-1: #2c2f33;
+  --anatomy-shade-0: #25282c;
+  --anatomy-lit-top: #4e5156;
+  --anatomy-lit-shade: #3a3d42;
+  --anatomy-hi: #868b91;
+  --anatomy-mid: #55595e;
+  --anatomy-lo: #1b1e21;
+  --anatomy-faint: #26292d;
+  --anatomy-lit: #eaf0f9;
+  --anatomy-dot: #bec4cc;
+  --anatomy-weight: 0.65px;
+
+  --mac-top-a: #53565b;
+  --mac-top-b: #404348;
+  --mac-front-a: #404348;
+  --mac-front-b: #313438;
+  --mac-side-a: #2a2d31;
+  --mac-side-b: #202327;
+  --mac-key-a: #464a4f;
+  --mac-key-b: #3c4044;
+  --mac-glass: #0c0e12;
+  --mac-phosphor: #e8ebef;
+  --mac-slot: #0f1114;
+}
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  /* The room keeps its charcoal; the screen (and so the landing) is the page's darker --bg. */
+  background-color: var(--loader-bg);
+  transition: opacity 0.45s var(--anatomy-ease);
+}
+
+.intro-overlay[data-stage="fade"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro-overlay .intro-svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .intro-overlay .intro-svg {
+    width: 150vw;
+  }
+}
+
+/* Material: falloff on the big faces, a faint rim, a highlight on the top bevel */
+.mac-body > .iso-top { fill: url(#mac-top); }
+.mac-body > .iso-shade[data-shade="3"] { fill: url(#mac-front); }
+.mac-body > .iso-shade[data-shade="0"] { fill: url(#mac-side); }
+.mac-body > .iso-edge { stroke: rgba(255, 255, 255, 0.07); }
+.mac-body > .iso-crease,
+.mac-body > .iso-bevel { stroke: rgba(255, 255, 255, 0.16); }
+
+.mac-key > .iso-top { fill: url(#mac-key-top); }
+.mac-key > .iso-edge { stroke: rgba(0, 0, 0, 0.5); }
+.mac-key > .iso-crease,
+.mac-key > .iso-bevel { stroke: rgba(255, 255, 255, 0.1); }
+
+/* Cut into the surface: grooves, vents, the handle, the eject hole */
+.mac-groove { stroke: rgba(0, 0, 0, 0.45); stroke-width: 0.9px; }
+.mac-hole { fill: rgba(0, 0, 0, 0.26); stroke: rgba(0, 0, 0, 0.2); stroke-width: 0.5px; }
+
+/* Grounding: plain gradients, no blur, so nothing changes during the zoom */
+.mac-contact { fill: url(#mac-contact); }
+
+/* Faces */
+.mac-well { fill: var(--anatomy-shade-2); }
+.mac-bezel { fill: var(--anatomy-shade-3); }
+.mac-dark { fill: var(--mac-slot); }
+.mac-glass { fill: var(--mac-glass); transition: fill 0.5s var(--anatomy-ease); }
+.mac-badge { opacity: 0.8; }
+.mac-cord { stroke-width: 1.1px; }
+
+.mac-beam { fill: none; stroke: var(--anatomy-lit); stroke-width: 1.4px; stroke-linecap: round; }
+.mac-shine { opacity: 0; }
+.mac-sheen { pointer-events: none; }
+
+/* Boot: the boot log gives way to the page in miniature */
+.mac-mini { opacity: 0; transition: opacity 0.45s var(--anatomy-ease); }
+.intro-overlay .mac-mini path,
+.intro-overlay .mac-mini rect,
+.intro-overlay .mac-mini circle { vector-effect: none; }
+.intro-overlay[data-stage] .mac-mini { opacity: 1; }
+.intro-overlay[data-stage] [data-part="crt"],
+.intro-overlay[data-stage] .mac-shine,
+.intro-overlay[data-stage] .mac-sheen { opacity: 0; transition: opacity 0.35s var(--anatomy-ease); }
+.intro-overlay[data-stage] .mac-glass { fill: var(--bg); }
+
+/* The real-3D intro (three/run.ts): its canvas takes the room; the drawing steps aside. */
+.intro-3d {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.intro-overlay[data-mode="3d"] .intro-svg {
+  display: none;
+}
+
+/* The lens: edges darken in the camera's close-ups (live.ts sets --vig). */
+.intro-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.6) 100%);
+  opacity: var(--vig, 0);
+}
+
+.mac-spill {
+  pointer-events: none;
+}
+
+/* The build: every part starts out of sight; live.ts brings each one in. */
+.intro-overlay [data-b] {
+  opacity: 0;
+}
+
+.intro-overlay[data-built] [data-b] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-overlay [data-b] {
+    opacity: 1;
+  }
+
+  .intro-overlay,
+  .mac-mini,
+  .mac-glass { transition-duration: 0.2s; }
+}

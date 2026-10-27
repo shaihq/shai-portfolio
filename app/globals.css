@@ -1,0 +1,262 @@
+:root {
+  /* ascii.rest's dark palette: cool, slightly blue greys. */
+  /*
+   * The page, a step darker than the room the computer sits in (--loader-bg). The
+   * grain over everything lifts the average by about 13 shades, so the base sits
+   * that much below ascii.rest's #131518 and the finished page lands on it.
+   */
+  --bg: #06080b;
+  --loader-bg: #1a1d21;
+  --dot: #121418;
+  --signature: #3b4048;
+  --text: #c3c9d1;
+  --text-strong: #e8ebef;
+  --text-muted: #8c95a1;
+  --pill-bg: #121418;
+  --pill-bg-hover: #1a1d22;
+  --icon: #8c95a1;
+  /* Type: Geist Sans reads, Geist Mono labels (see the .mono rules where it is used). */
+  --sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* The site's material: a fine grain, shared by the page, the chips and the slider. */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='.11'/></svg>");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  color: var(--text);
+  font-family: var(--sans);
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/*
+ * The film over everything (the loader too, so the zoom lands seamlessly): the light
+ * (a dithered canvas, components/film/Film.tsx) and the grain over it.
+ */
+.film-light {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  pointer-events: none;
+  background-image: var(--grain);
+}
+
+/* Page */
+
+/* Hidden under the intro; it stays laid out so the intro can measure it. */
+html[data-intro="on"] .page {
+  opacity: 0;
+}
+
+/* The page's layout (intro layer, cards, fader) is in components/stage/stage.css. */
+
+/* The intro is exactly as wide as the slider below it (--slider-w, stage.css). */
+.intro {
+  position: relative;
+  width: var(--slider-w);
+}
+
+/* Signature, drawn behind the header */
+
+.signature {
+  position: absolute;
+  left: -28px;
+  top: -96px;
+  width: 520px;
+  height: auto;
+  color: var(--signature);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/*
+ * Written in after the intro lands. live.ts sets each stroke's --len, --dur and
+ * --delay; the dash starts a little past the stroke's length so the round cap
+ * doesn't show as a dot before the pen arrives.
+ */
+html[data-intro] .signature path {
+  stroke-dasharray: var(--len) calc(var(--len) + 40);
+  stroke-dashoffset: calc(var(--len) + 20);
+}
+
+html[data-intro="done"] .signature path {
+  animation: sig-write var(--dur) var(--delay) cubic-bezier(0.45, 0.05, 0.55, 0.95) both;
+}
+
+@keyframes sig-write {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro] .signature path {
+    stroke-dasharray: none;
+    animation: none;
+  }
+}
+
+/* Header */
+
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* The mascot (components/mascot/Mascot.tsx): the head that looks at the cursor. */
+.mascot {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  margin: -18px -6px -18px -16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mascot:focus-visible {
+  outline: 1px solid var(--text-muted);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.mascot-body {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 78%;
+}
+
+.mascot-frames {
+  position: absolute;
+  inset: 0;
+  background-size: 300% 300%;
+  background-repeat: no-repeat;
+}
+
+.name {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.tagline {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+/* Bio */
+
+.bio {
+  position: relative;
+  z-index: 1;
+  margin-top: 30px;
+  font-size: 19px;
+  line-height: 35px;
+  color: var(--text);
+}
+
+/* Experience: an ascii.rest file tree (components/experience). Sized to fit its
+   widest line in the column, whatever the screen. */
+.tree {
+  position: relative;
+  z-index: 1;
+  margin-top: 30px;
+  font-family: var(--mono);
+  letter-spacing: 0;
+  font-size: min(16px, calc(var(--slider-w) / var(--cols) / 0.625));
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre;
+  font-variant-ligatures: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  margin-right: 4px;
+  border-radius: 8px;
+  background-color: var(--pill-bg);
+  /* The slider's material: lit from above, a fine edge catching the light (the grain is the site-wide film) */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 1px rgba(0, 0, 0, 0.25);
+  color: var(--text-strong);
+  white-space: nowrap;
+  vertical-align: middle;
+  transform: translateY(-2px);
+  transition: background-color 150ms ease;
+}
+
+.pill:hover {
+  background-color: var(--pill-bg-hover);
+}
+
+.pill-icon {
+  display: block;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+@media (max-width: 560px) {
+  .signature {
+    width: 380px;
+    left: -18px;
+    top: -72px;
+  }
+
+  .bio {
+    font-size: 17.5px;
+    line-height: 32px;
+  }
+}

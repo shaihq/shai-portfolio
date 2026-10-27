@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 1000">
+  <defs>
+    <pattern id="g" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1.2" fill="#2a2e34"/></pattern>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e23"/><stop offset="1" stop-color="#15171b"/></linearGradient>
+  </defs>
+  <rect width="1020" height="1000" fill="url(#l)"/>
+  <rect width="1020" height="1000" fill="url(#g)"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#5d646e" text-anchor="middle">
+    <text x="510" y="490" font-size="30" letter-spacing="2">SENSE · AI AGENT BUILDER</text>
+    <text x="510" y="540" font-size="22" fill="#3d434b">image coming soon</text>
+  </g>
+</svg>

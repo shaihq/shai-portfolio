@@ -1,0 +1,1477 @@
+/*
+ * The open project (ProjectView.tsx). The page behind sinks back and blurs, the
+ * image flies into a column the width of the intro, and the words arrive one by
+ * one out of a blur. The site's grain and light stay over all of it.
+ */
+
+/* The page recedes, the way the intro does when a card slides over it. Only while a
+   project opens or closes (ProjectView sets data-project-motion): elsewhere, as when
+   the intro hands the page over, the page must appear at once. */
+.page {
+  transform-origin: 50% 45%;
+}
+
+html[data-project-motion] .page {
+  transition: filter 0.9s cubic-bezier(0.7, 0, 0.2, 1), opacity 0.9s cubic-bezier(0.7, 0, 0.2, 1), transform 0.9s cubic-bezier(0.7, 0, 0.2, 1);
+}
+
+html[data-project="open"] .page {
+  filter: blur(22px);
+  opacity: 0.28;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
+.pv {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.pv-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  cursor: zoom-out;
+}
+
+.pv-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Layout: text in a reading column (~70 characters a line); pictures, videos and the
+ * card grids break out of it to a wider measure, centred, shrinking with the screen.
+ */
+.pv {
+  --pv-text: min(680px, 100vw - 48px);
+  --pv-wide: min(1000px, 100vw - 48px);
+}
+
+.pv-column {
+  width: var(--pv-text);
+  margin: 0 auto;
+  padding: max(72px, 13vh) 0 120px;
+  cursor: auto;
+}
+
+/* The hero: the thumbnail, as it is, at the column's width. */
+.pv-hero,
+.pv-flyer {
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: var(--pill-bg);
+}
+
+.pv-hero {
+  aspect-ratio: 1.02;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+}
+
+.pv-hero img,
+.pv-flyer img,
+.pv-hero video,
+.pv-flyer video,
+.pv-figure img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Until the flight lands the flyer is the image; then the hero, in the scrolling column, is. */
+.pv-hero:not([data-landed]) {
+  visibility: hidden;
+}
+
+.pv-flyer {
+  position: fixed;
+  pointer-events: none;
+  will-change: left, top, width, height;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+}
+
+.pv-flyer[data-landed] {
+  visibility: hidden;
+}
+
+/* The words: each arrives out of a blur, rising a little, one after another. */
+.pv-reveal {
+  opacity: 0;
+  filter: blur(14px);
+  transform: translateY(14px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--delay, 0ms);
+}
+
+.pv[data-revealed] .pv-reveal[data-in] {
+  opacity: 1;
+  filter: blur(0);
+  transform: none;
+}
+
+/* Leaving, all at once and quickly, before the image flies home. */
+.pv[data-phase="closing"] .pv-reveal {
+  transition-duration: 0.26s;
+  transition-delay: 0s;
+}
+
+.pv-head {
+  margin-top: 40px;
+}
+
+.pv-head > p:first-child {
+  display: flex;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+.pv-head h2,
+.pv-head h1 {
+  margin-top: 12px;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--text-strong);
+}
+
+.pv-summary {
+  margin-top: 16px;
+  font-size: 19px;
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.pv-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 36px;
+  padding: 18px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.pv-details dt {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+.pv-details dd {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--text-strong);
+}
+
+/* The story */
+.pv-story {
+  margin-top: 8px;
+}
+
+.pv-h {
+  margin-top: 56px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--text-strong);
+}
+
+.pv-h::before {
+  font-family: var(--mono);
+  font-weight: 400;
+  content: "## ";
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.pv-sub {
+  margin-top: 26px;
+  font-size: 17.5px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.pv-label {
+  margin-top: 26px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pv-p {
+  margin-top: 12px;
+  font-size: 17.5px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.pv-h + .pv-p {
+  margin-top: 14px;
+}
+
+.pv-list {
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 17.5px;
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.pv-list li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.pv-list li + li {
+  margin-top: 10px;
+}
+
+.pv-list li::before {
+  content: "─";
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+.pv-story strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.pv-figure {
+  margin: 22px 0 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background-color: var(--pill-bg);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.pv-figure iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.pv-figure video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pv-link {
+  color: var(--text-strong);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 4px;
+}
+
+.pv-link:hover {
+  text-decoration-color: var(--text-strong);
+}
+
+.pv-figure + .pv-figure {
+  margin-top: 14px;
+}
+
+.pv-figure + .pv-p,
+.pv-figure + .pv-label {
+  margin-top: 22px;
+}
+
+.pv-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 48px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+.pv-foot button,
+.pv-foot a {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.pv-foot button:focus-visible,
+.pv-foot a:focus-visible {
+  outline: 1px solid var(--text-muted);
+  outline-offset: 4px;
+}
+
+@media (max-width: 560px) {
+  .pv-details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pv-head h2,
+  .pv-head h1 {
+    font-size: 27px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .pv-reveal {
+    transition-duration: 0.2s;
+    transition-delay: 0s;
+  }
+
+  .pv-reveal {
+    filter: none;
+    transform: none;
+  }
+}
+
+/*
+ * The statement card: a quiet pane of dark glass in the site's own greys. A faint lit
+ * edge along the top (light from above, as on the slider), a soft shadow off the page,
+ * and a slow, faint sheen that passes across now and then. Reduced motion: still.
+ */
+.pv-glass {
+  margin: 26px 0 0;
+}
+
+.pv-glass-card {
+  position: relative;
+  margin: 0;
+  padding: 30px 34px 32px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 18px 40px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* The sheen: a faint band of light that passes across, then rests. */
+.pv-glass-sheen {
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(
+    105deg,
+    rgba(255, 255, 255, 0) 42%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 58%
+  );
+  transform: translateX(-60%);
+  animation: pv-glass-shimmer 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes pv-glass-shimmer {
+  0% { transform: translateX(-60%); }
+  50%, 100% { transform: translateX(60%); }
+}
+
+.pv-glass-mark {
+  display: block;
+  height: 22px;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.pv-glass-card p {
+  position: relative;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.012em;
+  color: var(--text-muted);
+}
+
+/* The key phrases: in the heading white, on a faint marker along the baseline. */
+.pv-glass-card strong {
+  font-weight: 500;
+  color: var(--text-strong);
+  background: linear-gradient(transparent 62%, rgba(255, 255, 255, 0.09) 62%, rgba(255, 255, 255, 0.09) 92%, transparent 92%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+@media (max-width: 560px) {
+  .pv-glass-card {
+    padding: 24px 22px 26px;
+    border-radius: 18px;
+  }
+
+  .pv-glass-card p {
+    font-size: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-glass-sheen {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* An image still to come: a quiet frame, dotted like the page, with a note of what goes there. */
+.pv-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background-color: color-mix(in srgb, var(--bg), #fff 3%);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 14px 14px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pv-placeholder-label {
+  max-width: 34ch;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.pv-placeholder-note {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+/*
+ * A journey: numbered moments as cards, two to a row (one on a phone). Each card is
+ * the statement card's dark pane with its illustration on top and the moment below,
+ * numbered in mono.
+ */
+.pv-journey {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-journey-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+.pv-journey-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--journey-ratio, 4 / 3);
+  object-fit: cover;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pv-journey-text {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+
+.pv-journey-num {
+  flex: none;
+  padding-top: 2px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.pv-journey-text p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .pv-journey {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Steps: numbered points as cards, two to a row, each with a small 3D object in a
+ * stage at the top. One canvas over the whole grid draws all of them (steps3d.ts);
+ * without WebGL each stage shows its number instead.
+ */
+.pv-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-steps-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pv-step {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+.pv-step-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  background: radial-gradient(ellipse 60% 70% at 50% 45%, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 70%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pv-step-fallback {
+  display: none;
+  font-family: var(--mono);
+  font-size: 44px;
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.pv-steps[data-flat] .pv-step-fallback {
+  display: block;
+}
+
+.pv-step-body {
+  padding: 16px 18px 20px;
+}
+
+.pv-step-num {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.pv-step-body h4 {
+  margin-top: 6px;
+  font-size: 17.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+.pv-step-body p {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .pv-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * A Slack message: the cropped screenshot on a card in Slack's own dark (its edges
+ * blend into the screenshot), with a callout below, pointed at it by a hand-drawn
+ * arrow, in the site's type.
+ */
+.pv-slack {
+  margin: 22px 0 0;
+}
+
+.pv-slack-card {
+  padding: 20px 22px 18px;
+  border-radius: 18px;
+  background: #1c1d21;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 18px 40px -20px rgba(0, 0, 0, 0.7);
+}
+
+.pv-slack-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pv-slack-callout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  padding-right: 6px;
+}
+
+.pv-slack-arrow {
+  flex: none;
+  width: 84px;
+  height: 50px;
+  margin-top: -6px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.pv-slack-callout span {
+  max-width: 30ch;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.pv-slack-callout strong {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+@media (max-width: 560px) {
+  .pv-slack-card {
+    padding: 14px 14px 12px;
+    border-radius: 14px;
+  }
+
+  .pv-slack-arrow {
+    width: 60px;
+    height: 36px;
+  }
+
+  .pv-slack-callout span {
+    font-size: 15.5px;
+  }
+}
+
+/*
+ * Legacy footage: the old version, marked so it reads as the past at a glance: a
+ * badge pinned to the frame and a mono caption below saying what it cost. The
+ * picture itself is shown as it is.
+ */
+.pv-legacy {
+  margin: 22px 0 0;
+}
+
+.pv-legacy .pv-figure {
+  position: relative;
+  margin: 0;
+}
+
+.pv-legacy-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+  background: rgba(19, 21, 24, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+}
+
+.pv-legacy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8c95a1;
+  box-shadow: 0 0 0 3px rgba(140, 149, 161, 0.18);
+}
+
+.pv-legacy-caption {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/*
+ * Snapshots: the key areas of a research board as a 2×2 grid of cards in the site's
+ * dark material. Notes are small inset tiles, like stickies, without the colour.
+ */
+.pv-snaps {
+  margin: 22px 0 0;
+}
+
+.pv-snaps-source {
+  margin-bottom: 10px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pv-snaps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pv-snap {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+.pv-snap-label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.pv-snap h4 {
+  margin-top: 6px;
+  font-size: 17.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+.pv-snap-text {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pv-snap-groups {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pv-snap-groups dt {
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.pv-snap-groups dd {
+  position: relative;
+  padding-left: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.pv-snap-groups dd::before {
+  content: "─";
+  position: absolute;
+  left: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/*
+ * Notes as modern sticky notes: small squares of paper in muted tones (so they sit
+ * quietly on the dark page), dark ink, a strip of tape, a slight tilt and the lifted-
+ * corner shadow of real paper. Hover straightens one and lifts it.
+ */
+.pv-snap-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 14px;
+  margin: 18px 0 4px;
+  padding: 0 2px;
+  list-style: none;
+}
+
+.pv-snap-notes li {
+  --paper: #e6dca4;
+  --tilt: -1.6deg;
+  position: relative;
+  display: block;
+  min-height: 150px;
+  padding: 18px 14px 14px;
+  border-radius: 3px 3px 10px 3px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #24262a;
+  background:
+    linear-gradient(170deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0) 30%),
+    var(--paper);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.25),
+    0 10px 14px -8px rgba(0, 0, 0, 0.55),
+    0 22px 26px -18px rgba(0, 0, 0, 0.6);
+  transform: rotate(var(--tilt));
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The tape. */
+.pv-snap-notes li::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 46px;
+  height: 14px;
+  margin-left: -23px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  transform: rotate(calc(var(--tilt) * -2));
+}
+
+/* The lifted bottom-right corner. */
+.pv-snap-notes li::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 0 0 10px 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.1) 50%, rgba(255, 255, 255, 0.18) 100%);
+}
+
+.pv-snap-notes li:nth-child(4n + 2) {
+  --paper: #c9d9b8;
+  --tilt: 1.4deg;
+}
+
+.pv-snap-notes li:nth-child(4n + 3) {
+  --paper: #bfd2e2;
+  --tilt: 1deg;
+}
+
+.pv-snap-notes li:nth-child(4n + 4) {
+  --paper: #d6cae6;
+  --tilt: -1.1deg;
+}
+
+.pv-snap-notes li:hover {
+  transform: rotate(0deg) translateY(-3px);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.25),
+    0 16px 20px -10px rgba(0, 0, 0, 0.6),
+    0 30px 34px -20px rgba(0, 0, 0, 0.6);
+}
+
+/* A note's lead word reads as its heading. */
+.pv-snap-notes strong {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: #111214;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-snap-notes li {
+    transition: none;
+  }
+}
+
+.pv-snap-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-snap-tags li {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.pv-snap-quote {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.pv-snap-quote span {
+  display: block;
+  margin-bottom: 6px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+@media (max-width: 560px) {
+  .pv-snaps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The breakout: media and grids run wider than the text, centred on it. */
+.pv-story > .pv-figure,
+.pv-story > .pv-legacy,
+.pv-story > .pv-journey,
+.pv-story > .pv-snaps,
+.pv-story > .pv-steps {
+  width: var(--pv-wide);
+  margin-left: calc((100% - var(--pv-wide)) / 2);
+  margin-right: calc((100% - var(--pv-wide)) / 2);
+  margin-top: 34px;
+  margin-bottom: 14px;
+}
+
+.pv-story > .pv-figure + .pv-figure {
+  margin-top: 16px;
+}
+
+/* The wider grids get a little more room between cards. */
+.pv-story > .pv-journey,
+.pv-story > .pv-snaps .pv-snaps-grid,
+.pv-story > .pv-steps {
+  gap: 18px;
+}
+
+@media (min-width: 900px) {
+  .pv-story > .pv-journey {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* A last step left alone on its row spans it, picture beside the words. */
+  .pv-story > .pv-journey[data-count="4"] > li:last-child,
+  .pv-story > .pv-journey[data-count="7"] > li:last-child,
+  .pv-story > .pv-journey[data-count="10"] > li:last-child {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: calc((100% - 36px) / 3) 1fr;
+    align-items: center;
+  }
+
+  .pv-story > .pv-journey[data-count="4"] > li:last-child img,
+  .pv-story > .pv-journey[data-count="7"] > li:last-child img,
+  .pv-story > .pv-journey[data-count="10"] > li:last-child img {
+    height: 100%;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .pv-story > .pv-journey[data-count="4"] > li:last-child .pv-journey-text,
+  .pv-story > .pv-journey[data-count="7"] > li:last-child .pv-journey-text,
+  .pv-story > .pv-journey[data-count="10"] > li:last-child .pv-journey-text {
+    padding: 20px 28px;
+  }
+
+  .pv-story > .pv-journey[data-count="4"] > li:last-child p,
+  .pv-story > .pv-journey[data-count="7"] > li:last-child p,
+  .pv-story > .pv-journey[data-count="10"] > li:last-child p {
+    font-size: 17px;
+  }
+
+  /* Two steps fill the width in two columns, rather than leaving a gap in three. */
+  .pv-story > .pv-journey[data-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The Slack card sits in the reading column, with room around it. */
+.pv-story > .pv-slack {
+  margin-top: 28px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 560px) {
+  .pv-legacy-badge {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+    padding: 4px 8px 4px 7px;
+    font-size: 9.5px;
+  }
+
+  .pv-legacy-dot {
+    width: 5px;
+    height: 5px;
+  }
+}
+
+/*
+ * The version badge: a small raised pill of dark graphite, lit from above like the
+ * site's other surfaces (a bright top bevel, a darker lower lip, a soft cast shadow),
+ * a recessed number chip, and a faint shimmer that passes across now and then.
+ */
+.pv-version-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 13px 6px 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+  background: linear-gradient(180deg, #3a3e45 0%, #24272c 52%, #1b1e22 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 8px 18px -6px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* The number, set into the pill. */
+.pv-version-mark {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--text-strong);
+  background: linear-gradient(180deg, #121417, #1c1f23);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.pv-version-sheen {
+  position: absolute;
+  inset: 0 -40%;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0) 62%);
+  transform: translateX(-70%);
+  animation: pv-version-shimmer 4.5s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes pv-version-shimmer {
+  0% { transform: translateX(-70%); }
+  45%, 100% { transform: translateX(70%); }
+}
+
+@media (max-width: 560px) {
+  .pv-version-badge {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+    padding: 4px 9px 4px 4px;
+    font-size: 9.5px;
+  }
+
+  .pv-version-mark {
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-version-sheen {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
+ * What went wrong, in numbers. One muted red, used only where something failed: the
+ * eyebrow, the meter arcs and the alert word. Thin rings on the dark card, the figure
+ * set plainly inside; each arc fills once when the card is scrolled to.
+ */
+.pv {
+  --alert: #e5675c;
+}
+
+.pv-alert {
+  font-style: normal;
+  color: var(--alert);
+}
+
+.pv-decline {
+  margin: 22px 0 0;
+  padding: 26px 28px 30px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 18px 40px -20px rgba(0, 0, 0, 0.7);
+}
+
+.pv-story > .pv-decline {
+  width: var(--pv-wide);
+  margin-left: calc((100% - var(--pv-wide)) / 2);
+  margin-right: calc((100% - var(--pv-wide)) / 2);
+  margin-top: 26px;
+  margin-bottom: 14px;
+}
+
+.pv-decline-eyebrow {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--alert);
+  background: color-mix(in srgb, var(--alert) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert) 28%, transparent);
+}
+
+.pv-decline-text {
+  max-width: 34ch;
+  margin-top: 18px;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+  color: var(--text-muted);
+}
+
+.pv-decline-text strong {
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+.pv-decline-meters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin: 34px 0 0;
+  padding: 26px 0 0;
+  list-style: none;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.pv-decline-meters li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pv-meter {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(150px, 100%);
+  aspect-ratio: 1;
+}
+
+.pv-meter svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.pv-meter circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.pv-meter-track {
+  stroke: rgba(255, 255, 255, 0.07);
+}
+
+.pv-meter-arc {
+  stroke: var(--alert);
+  stroke-linecap: round;
+  stroke-dasharray: var(--c);
+  stroke-dashoffset: var(--c);
+  transition: stroke-dashoffset 1.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(0.25s + var(--i) * 0.15s);
+}
+
+.pv-decline[data-in] .pv-meter-arc {
+  stroke-dashoffset: var(--off);
+}
+
+.pv-meter-value {
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
+.pv-meter-value span {
+  margin-left: 1px;
+  font-size: 0.55em;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.pv-meter-caption {
+  max-width: 24ch;
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .pv-decline {
+    padding: 22px 18px 24px;
+  }
+
+  .pv-decline-text {
+    font-size: 21px;
+  }
+
+  .pv-decline-meters {
+    gap: 10px;
+  }
+
+  .pv-meter-value {
+    font-size: 24px;
+  }
+
+  .pv-meter circle {
+    stroke-width: 6;
+  }
+
+  .pv-meter-caption {
+    font-size: 12.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-meter-arc {
+    transition: none;
+  }
+}
+
+/* Results as simple cards: the figure, large, and a short caption. Greys only. */
+.pv-story > .pv-results {
+  width: var(--pv-wide);
+  margin-left: calc((100% - var(--pv-wide)) / 2);
+  margin-right: calc((100% - var(--pv-wide)) / 2);
+  margin-top: 26px;
+  margin-bottom: 18px;
+}
+
+.pv-results-label {
+  margin-bottom: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pv-results-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-results-stats li {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 22px 22px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012) 60%), color-mix(in srgb, var(--bg), #fff 3%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+.pv-results-value {
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
+.pv-results-caption {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.pv-results-note {
+  margin-top: 14px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+  .pv-results-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .pv-results-stats li {
+    padding: 18px 18px 16px;
+  }
+
+  .pv-results-value {
+    font-size: 34px;
+  }
+
+  .pv-results-caption {
+    margin-top: 8px;
+  }
+}
+
+/* The close bar pinned at the top, over the reading column; it fades in with the words. */
+.pv-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* The band spans the window; its contents line up with the reading column. */
+  padding: 22px max(24px, (100% - var(--pv-text)) / 2) 34px;
+  background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 92%, transparent) 55%, transparent 100%);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.pv[data-revealed] .pv-topbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pv-topbar button,
+.pv-topbar a {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.pv-topbar button:hover,
+.pv-topbar a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/*
+ * A project's own page (app/projects/[slug]): the open view, standing on its own.
+ * Everything is there from the first paint (it is the server's HTML): no flight, no
+ * reveal, and the background is the page's, not a click target.
+ */
+.pv[data-static] .pv-reveal {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: none;
+}
+
+.pv[data-static] .pv-scroll {
+  cursor: auto;
+}
+
+.pv-foot a,
+.pv-topbar a {
+  text-decoration: none;
+}

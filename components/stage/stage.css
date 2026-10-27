@@ -1,0 +1,638 @@
+:root {
+  --intro-w: min(640px, 100vw - 48px);
+  --intro-gap: 140px;
+  /* The slider's width, so cards and slider line up; capped by height so a card never
+     reaches the slider on a short screen. */
+  --slider-w: min(560px, 100vw - 32px);
+  --card-w: min(var(--slider-w), (100vh - 270px) / 1.12);
+  --card-gap: 64px;
+}
+
+/* The stage fills the window; nothing scrolls vertically. */
+.page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Layer 1: the intro, pinned in the centre. motion.ts blurs and shrinks it. */
+.intro-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  /* Centred in the room above the slider; if the intro is taller than that (a
+     phone, a short window) it starts at the top and scrolls instead of clipping. */
+  place-items: safe center;
+  padding: 110px 16px 150px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  transform-origin: 50% 50%;
+  will-change: transform, filter, opacity;
+}
+
+/* Layer 2: the cards, starting right of the intro and sliding over it. */
+.projects {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--card-gap);
+  width: max-content;
+  padding-left: calc(50vw + var(--intro-w) / 2 + var(--intro-gap));
+  padding-right: calc(50vw - var(--card-w) / 2);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/*
+ * The tilt: motion.ts turns each card to face the centre by how far it is from it
+ * (--tilt, degrees) and sets it back a touch (--depth); a card in the centre is square
+ * and flat. On an inner layer, as the card's own transform belongs to its entrance.
+ */
+.card-body {
+  display: block;
+  transform: perspective(1500px) translateZ(var(--depth, 0px)) rotateY(var(--tilt, 0deg));
+  transform-origin: 50% 45%;
+  will-change: transform;
+}
+
+.card {
+  display: block;
+  flex: none;
+  width: var(--card-w);
+  pointer-events: auto;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.card:focus {
+  outline: none;
+}
+
+.card:focus-visible .card-media {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 0 4px var(--bg), 0 0 0 5px var(--text-muted);
+}
+
+.card-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 1.02;
+  border-radius: 18px;
+  overflow: hidden;
+  background-color: var(--pill-bg);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 48px -24px rgba(0, 0, 0, 0.7);
+}
+
+/*
+ * The light on each card (values from motion.ts, by how the card faces the key light
+ * up and to the left): shade or lift over the whole face, a soft glint that slides
+ * across as it turns, and the lit edge.
+ */
+.card-media::before,
+.card-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card-media::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, calc(var(--lift, 0) * 0.5)), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(90deg, rgba(0, 0, 0, calc(var(--shade, 0) * 0.55)), rgba(0, 0, 0, calc(var(--shade, 0) * 1.15)));
+  box-shadow:
+    inset 1.5px 0 0 rgba(255, 255, 255, var(--rim, 0.08)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.card-media::after {
+  background: linear-gradient(
+    105deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, var(--glint, 0.1)) 47%,
+    rgba(255, 255, 255, calc(var(--glint, 0.1) * 0.35)) 53%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  background-size: 260% 100%;
+  background-position: var(--glint-x, 50%) 0;
+  mix-blend-mode: soft-light;
+}
+
+/* The floor: a contact shadow where the card stands and a faint, fading reflection. */
+.card-floor {
+  position: relative;
+  display: block;
+  height: 0;
+}
+
+.card-floor::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -10px;
+  height: 22px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  filter: blur(4px);
+}
+
+.card-reflection {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1.02;
+  object-fit: cover;
+  border-radius: 18px;
+  transform: scaleY(-1);
+  opacity: 0.14;
+  filter: blur(2px) saturate(0.8);
+  -webkit-mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 20%);
+  mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 20%);
+  pointer-events: none;
+}
+
+/* A pool of light behind the centred card, the room falling darker to the sides. */
+.stage-light {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 34% 46% at 50% 44%, rgba(214, 224, 238, 0.07), rgba(214, 224, 238, 0) 70%),
+    radial-gradient(ellipse 80% 90% at 50% 46%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.loop-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.loop-video video,
+.card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  -webkit-user-drag: none;
+}
+
+.card-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.card-title {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.card-kind {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+/*
+ * Layer 3: the slider, carved into the page rather than sitting on it: a pill-shaped
+ * well whose top wall throws a deep shadow while its lower and far walls catch the
+ * light, a fine rail groove along its floor, and a plain dark ball sitting down in
+ * it, casting its shadow onto the floor. The stops are numbered
+ * underneath, the current one lit. Light falls from above.
+ */
+:root {
+  --well-h: 68px;
+  --knob: 52px;
+}
+
+.slider {
+  position: fixed;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  z-index: 2;
+  width: var(--slider-w);
+  padding-bottom: 34px;
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.slider[data-active] {
+  cursor: grabbing;
+}
+
+.slider:focus-visible {
+  outline: none;
+}
+
+.slider:focus-visible .slider-well {
+  outline: 1px solid var(--text-muted);
+  outline-offset: 5px;
+}
+
+/*
+ * The well: shadowed walls above and below (the top a little deeper, as the light is
+ * above) around a floor that is lightest along its middle, so the floor the eye sees
+ * is centred on the rail; a soft glint on the far wall; the cut's edge lit below.
+ */
+.slider-well {
+  position: relative;
+  height: var(--well-h);
+  border-radius: calc(var(--well-h) / 2);
+  /* The knob's shadow falls on the floor only, never past the walls. */
+  overflow: hidden;
+  /*
+   * Cut into the page. The page is near black, so a darker floor alone can't be
+   * seen: like the reference, the well reads through its light. The floor is a
+   * touch lighter than the page with a soft shadow under the top wall, the lower half
+   * and the far end catch the light from above, and the cut's lower lip is lit. All built from the page colour, and the
+   * site-wide grain covers it (it carries none of its own).
+   */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(45% 110% at 100% 60%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg), #fff 2%) 0%,
+      color-mix(in srgb, var(--bg), #fff 4%) 30%,
+      color-mix(in srgb, var(--bg), #fff 4%) 62%,
+      color-mix(in srgb, var(--bg), #fff 7%) 88%,
+      color-mix(in srgb, var(--bg), #fff 4%) 100%
+    );
+  box-shadow:
+    inset 0 10px 12px -9px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+    inset -14px 0 16px -10px rgba(255, 255, 255, 0.1),
+    inset 14px 0 16px -10px rgba(0, 0, 0, 0.6),
+    /* the cut's edge: shadowed above, lit below */
+    0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 1px rgba(255, 255, 255, 0.04);
+}
+
+/* The rail groove along the floor */
+.slider-groove {
+  position: absolute;
+  left: calc(var(--knob) / 2 + 4px);
+  right: calc(var(--knob) / 2 + 4px);
+  top: 50%;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 4px;
+  background-color: #000;
+  background-image: linear-gradient(180deg, #000, color-mix(in srgb, var(--bg), #000 40%));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.05), 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* The knob's travel (and the numbers under it): the well less a knob-radius margin at each end */
+.slider-rail,
+.slider-stops {
+  position: absolute;
+  left: calc((var(--well-h) - var(--knob)) / 2 + var(--knob) / 2);
+  right: calc((var(--well-h) - var(--knob)) / 2 + var(--knob) / 2);
+}
+
+.slider-rail {
+  top: 0;
+  bottom: 0;
+}
+
+.slider-stops {
+  top: var(--well-h);
+  height: 34px;
+}
+
+/* The stop numbers, printed under the well */
+.slider-stop {
+  position: absolute;
+  top: 13px;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  opacity: 0.7;
+  pointer-events: none;
+  transition: color 0.25s ease, opacity 0.25s ease;
+}
+
+.slider-stop[data-on] {
+  color: var(--text-strong);
+  opacity: 1;
+}
+
+/* The knob: a plain dark ball lit from above, a soft highlight, casting onto the floor */
+.slider-knob {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 1;
+  width: var(--knob);
+  height: var(--knob);
+  margin: calc(var(--knob) / -2) 0 0 calc(var(--knob) / -2);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.slider-cap {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: #25282c;
+  background-image:
+    radial-gradient(circle at 36% 26%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 26%),
+    radial-gradient(circle at 40% 30%, #56595f 0%, #393d41 26%, #25282c 58%, #16191c 86%, #101215 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 -4px 7px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.65),
+    /* cast onto the well floor, a little below and behind */
+    1px 4px 7px rgba(0, 0, 0, 0.65),
+    3px 8px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.slider[data-active] .slider-cap {
+  transform: scale(0.97);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    1px 2px 4px rgba(0, 0, 0, 0.7),
+    2px 5px 9px rgba(0, 0, 0, 0.4);
+}
+
+
+/*
+ * The reveal: once the signature is written (--sig-end, set in intro/live.ts), the
+ * project cards slide in from the right one after another. The slider is always there.
+ */
+html[data-intro="done"] .card {
+  animation: card-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--sig-end, 0s) + var(--i, 0) * 0.09s);
+}
+
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro="done"] .card {
+    animation-name: fade-in;
+    animation-duration: 0.3s;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+.intro-layer::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .intro-layer {
+    padding: 96px 16px 130px;
+  }
+
+  :root {
+    --intro-gap: 48px;
+    --card-gap: 16px;
+    --well-h: 60px;
+    --knob: 46px;
+  }
+
+  .slider {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}
+
+/*
+ * Contact (Contact.tsx): two keys in the top corners of the window. The keys are the
+ * knob's dark plastic, lit from above, standing on a short side that disappears as
+ * they go down.
+ */
+.contact {
+  position: fixed;
+  top: calc(18px + env(safe-area-inset-top));
+  left: calc(20px + env(safe-area-inset-left));
+  right: calc(20px + env(safe-area-inset-right));
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Not on the page the intro shows on the computer's screen either: they come after
+   the signature. */
+html[data-intro="on"] .contact {
+  visibility: hidden;
+}
+
+html[data-intro="done"] .contact {
+  animation: contact-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Not until the signature is written (--sig-end, set in intro/live.ts). */
+  animation-delay: var(--sig-end, 0s);
+}
+
+@keyframes contact-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    /* Hidden while it waits: no clicks, no focus, no shortcuts. */
+    visibility: hidden;
+  }
+}
+
+.contact-well {
+  display: flex;
+  justify-content: space-between;
+}
+
+.contact-key {
+  display: block;
+  pointer-events: auto;
+  padding: 0 0 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.contact-key:focus {
+  outline: none;
+}
+
+.contact-cap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 6px 0 13px;
+  border-radius: 17px;
+  background-color: #25282c;
+  background-image: linear-gradient(180deg, #3b3f44 0%, #2b2e33 42%, #212428 78%, #1b1e21 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    /* the key's side, then its shadow on the well floor */
+    0 2px 0 #0d0f11,
+    0 3px 1px rgba(0, 0, 0, 0.5),
+    0 5px 9px rgba(0, 0, 0, 0.45);
+  transition: transform 0.09s ease, box-shadow 0.09s ease, background-color 0.2s ease;
+}
+
+.contact-key:hover .contact-cap {
+  background-color: #2b2e33;
+  background-image: linear-gradient(180deg, #42464c 0%, #30343a 42%, #25282d 78%, #1d2023 100%);
+}
+
+.contact-key[data-down] .contact-cap,
+.contact-key:active .contact-cap {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.75),
+    0 0 0 #0d0f11,
+    0 1px 1px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.contact-key:focus-visible .contact-cap {
+  outline: 1px solid var(--text-muted);
+  outline-offset: 7px;
+}
+
+/* The label: its two faces (copy email / copied) share one place, so the key never resizes. */
+.contact-label {
+  display: grid;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.contact-face {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.contact-face svg {
+  color: var(--icon);
+  flex: none;
+}
+
+.contact-key:hover .contact-face {
+  color: var(--text-strong);
+}
+
+.contact-face-done {
+  opacity: 0;
+  transform: translateY(5px);
+  color: var(--text-strong);
+}
+
+.contact-face-done svg {
+  color: var(--text-strong);
+}
+
+.contact-key[data-done] .contact-face:not(.contact-face-done) {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.contact-key[data-done] .contact-face-done {
+  opacity: 1;
+  transform: none;
+}
+
+/* The shortcut, engraved into the key. */
+.contact-kbd {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.contact-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* No keyboard, no shortcuts to show. */
+@media (hover: none) and (pointer: coarse) {
+  .contact-kbd {
+    display: none;
+  }
+
+  .contact-cap {
+    padding: 0 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro="done"] .contact {
+    animation: none;
+  }
+
+  .contact-face {
+    transition: opacity 0.15s ease;
+    transform: none !important;
+  }
+}
