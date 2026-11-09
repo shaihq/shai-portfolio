@@ -1056,7 +1056,10 @@ export function mountPond(canvas: HTMLCanvasElement) {
   const active = () => html.dataset.intro !== "on" && !document.hidden;
   const interactive = () => active() && html.dataset.project !== "open";
   function tick(now: number) {
-    if (!interactive() && previous && now - previous < 30) {
+    // Half rate behind an open project, and on phones while the cards slide over it
+    // (the stage sets data-sliding then): they get the GPU.
+    const easing = !interactive() || html.dataset.sliding !== undefined;
+    if (easing && previous && now - previous < 30) {
       frame = active() ? requestAnimationFrame(tick) : 0;
       return;
     }

@@ -61,7 +61,17 @@ export function mountStage(els: StageElements) {
   let detents: number[] = [0];
   let majors: boolean[] = [];
   let labels: HTMLElement[] = [];
-  let cardBodies: { el: HTMLElement; centre: number }[] = [];
+  let cardBodies: { el: HTMLElement; centre: number; set: Map<string, string> }[] = [];
+  /*
+   * A style written only when its value changes. A card off to the side holds its
+   * full tilt, so its values stop changing: unwritten, it isn't restyled or
+   * repainted while the others move.
+   */
+  const put = (card: { el: HTMLElement; set: Map<string, string> }, name: string, value: string) => {
+    if (card.set.get(name) === value) return;
+    card.set.set(name, value);
+    card.el.style.setProperty(name, value);
+  };
   let cardSpan = 1;
   let lit = -1;
   let index = 0;
@@ -116,7 +126,9 @@ export function mountStage(els: StageElements) {
   function layout() {
     vw = els.root.clientWidth;
     const cards = Array.from(els.track.querySelectorAll<HTMLElement>("[data-card]"));
-    cardBodies = cards.map((c) => ({ el: c.querySelector<HTMLElement>(".card-body")!, centre: c.offsetLeft + c.offsetWidth / 2 })).filter((c) => c.el);
+    cardBodies = cards
+      .map((c) => ({ el: c.querySelector<HTMLElement>(".card-body")!, centre: c.offsetLeft + c.offsetWidth / 2, set: new Map<string, string>() }))
+      .filter((c) => c.el);
     cardSpan = cards.length > 1 ? cards[1]!.offsetLeft - cards[0]!.offsetLeft : cards[0]?.offsetWidth || 1;
     max = Math.max(0, els.track.offsetWidth - vw);
     detents = [0, ...cards.map((c) => clamp(c.offsetLeft + c.offsetWidth / 2 - vw / 2, 0, max))];
@@ -175,10 +187,15 @@ export function mountStage(els: StageElements) {
         kv = 0;
       }
     }
+    // Under a finger the cards are held, not sprung: they move with it exactly, as
+    // anything dragged by hand should. (A spring here trails the finger by a beat,
+    // which reads as lag.) Letting go hands its speed to the spring.
+    const held = !!swipe?.active;
+    if (held) x = target;
     // Small fixed substeps keep the stiff cap spring stable at any frame rate.
     for (let left = dt; left > 1e-6; left -= 1 / 240) {
       const h = Math.min(left, 1 / 240);
-      if (!still.matches) [x, v] = spring(x, v, target, TRACK, h);
+      if (!still.matches && !held) [x, v] = spring(x, v, target, TRACK, h);
       if (!still.matches || drag) [kp, kv] = spring(kp, kv, ktarget, drag ? KNOB_DRAG : KNOB_FOLLOW, h);
       // The ends of the well are solid: the knob stops dead against them.
       if (kp < 0 || kp > railW) {
@@ -226,7 +243,9 @@ export function mountStage(els: StageElements) {
     const reach = detents[1] || max || 1;
     const e = smooth(clamp(x / reach, 0, 1));
     els.intro.style.transform = `scale(${(1 - (1 - INTRO_END.scale) * e).toFixed(4)})`;
-    els.intro.style.filter = e > 0.002 ? `blur(${(INTRO_END.blur * e).toFixed(2)}px)` : "";
+    // Phones skip the blur: refiltering the whole intro every frame is the heaviest
+    // thing on the page for them. It still shrinks and dims.
+    els.intro.style.filter = !small.matches && e > 0.002 ? `blur(${(INTRO_END.blur * e).toFixed(2)}px)` : "";
     els.intro.style.opacity = (1 - INTRO_END.dim * e).toFixed(3);
     els.intro.toggleAttribute("inert", e > 0.5);
 
@@ -237,22 +256,27 @@ export function mountStage(els: StageElements) {
       const off = still.matches ? 0 : (card.centre - x - vw / 2) / cardSpan;
       const tilt = clamp(-off * TILT.per, -TILT.max, TILT.max);
       const depth = -Math.min(1.5, Math.abs(off)) * TILT.depth;
-      card.el.style.setProperty("--tilt", `${tilt.toFixed(2)}deg`);
-      card.el.style.setProperty("--depth", `${depth.toFixed(1)}px`);
+      // The transform itself, not variables for it: a variable is inherited, so every
+      // element inside the card would be restyled, and repainted, each frame.
+      put(card, "transform", `perspective(1500px) translateZ(${depth.toFixed(1)}px) rotateY(${tilt.toFixed(2)}deg)`);
+      // Phones keep the turn (moved by the GPU, no repaint) but not the changing light:
+      // each change repaints the card, image and all, every frame, and with a card
+      // nearly the width of the screen the side cards it would light are barely in view.
+      if (small.matches) continue;
 
       // Lambert against the key light, relative to a card facing straight out.
       const a = (tilt * Math.PI) / 180;
       const facing = Math.sin(a) * LIGHT.x + Math.cos(a) * LIGHT.z;
       const delta = facing - LIGHT.z;
-      card.el.style.setProperty("--shade", Math.max(0, -delta * LIGHT.shade + Math.min(1, Math.abs(off)) * 0.12).toFixed(3));
-      card.el.style.setProperty("--lift", Math.max(0, delta * LIGHT.lift).toFixed(3));
+      put(card, "--shade", Math.max(0, -delta * LIGHT.shade + Math.min(1, Math.abs(off)) * 0.12).toFixed(3));
+      put(card, "--lift", Math.max(0, delta * LIGHT.lift).toFixed(3));
       // The glint: where the reflected light sits on the card, and how bright it is.
-      card.el.style.setProperty("--glint-x", `${(50 - tilt * LIGHT.glintSweep).toFixed(1)}%`);
-      card.el.style.setProperty("--glint", (0.1 + 0.16 * Math.max(0, 1 - Math.abs(tilt + 8) / 30)).toFixed(3));
+      put(card, "--glint-x", `${(50 - tilt * LIGHT.glintSweep).toFixed(1)}%`);
+      put(card, "--glint", (0.1 + 0.16 * Math.max(0, 1 - Math.abs(tilt + 8) / 30)).toFixed(3));
       // The edge toward the light catches it when the card turns that way.
-      card.el.style.setProperty("--rim", (0.08 + Math.max(0, -tilt / TILT.max) * 0.32).toFixed(3));
+      put(card, "--rim", (0.08 + Math.max(0, -tilt / TILT.max) * 0.32).toFixed(3));
       const blur = small.matches ? 0 : Math.max(0, Math.min(1.4, Math.abs(off)) - 0.15) * LIGHT.blur;
-      card.el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : "";
+      put(card, "filter", blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : "");
     }
     // The spotlight comes up as the cards arrive.
     stageLight?.style.setProperty("opacity", e.toFixed(3));
@@ -284,12 +308,16 @@ export function mountStage(els: StageElements) {
       setSlide(0);
       render();
       frame = 0;
+      delete document.documentElement.dataset.sliding;
     }
   }
 
   function run() {
     if (frame) return;
     previous = 0;
+    // Phones: the pond (components/pond) eases off to half its frame rate while the
+    // cards move, leaving the GPU to them.
+    if (small.matches) document.documentElement.dataset.sliding = "";
     frame = requestAnimationFrame(tick);
   }
 
@@ -374,7 +402,9 @@ export function mountStage(els: StageElements) {
   function onRootDown(e: PointerEvent) {
     if (e.pointerType !== "touch" || drag || els.slider.contains(e.target as Node)) return;
     unlockSound();
-    swipe = { id: e.pointerId, x0: e.clientX, start: target, active: false, samples: [] };
+    // From where the cards are, not where they were going: a finger that lands on them
+    // while they settle catches them there.
+    swipe = { id: e.pointerId, x0: e.clientX, start: x, active: false, samples: [] };
   }
 
   function onRootMove(e: PointerEvent) {
@@ -382,6 +412,7 @@ export function mountStage(els: StageElements) {
     const dx = e.clientX - swipe.x0;
     if (!swipe.active && Math.abs(dx) > 8) {
       swipe.active = true;
+      v = 0;
       els.root.setPointerCapture(e.pointerId);
     }
     if (!swipe.active) return;
@@ -394,9 +425,12 @@ export function mountStage(els: StageElements) {
   function onRootUp(e: PointerEvent) {
     if (!swipe || e.pointerId !== swipe.id) return;
     const active = swipe.active;
-    const projected = clamp(target + velocity(swipe.samples) * THROW * 1.5, 0, max);
+    const speed = velocity(swipe.samples);
+    const projected = clamp(target + speed * THROW * 1.5, 0, max);
     swipe = null;
     if (active) {
+      // The cards leave the finger at its speed, and the spring takes it from there.
+      v = speed;
       // The click that follows a swipe is not a tap on a card.
       swiped = true;
       setTimeout(() => (swiped = false), 0);
@@ -440,6 +474,7 @@ export function mountStage(els: StageElements) {
 
   return () => {
     cancelAnimationFrame(frame);
+    delete document.documentElement.dataset.sliding;
     clearTimeout(wheelTimer);
     els.slider.removeEventListener("pointerdown", onSliderDown);
     els.slider.removeEventListener("pointermove", onSliderMove);

@@ -2,15 +2,19 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 /*
- * The Macintosh as a real 3D model, built part by part so the loader can assemble
- * it. Dimensions follow the illustration (macintosh.ts), in the same units (about
- * 2 mm): x right, y up, z toward the viewer; the case front is at z = FRONT.
+ * A late-70s colour monitor, keyboard and mouse as a real 3D model, built part by
+ * part so the loader can assemble it: a light grey shell with a dark face and
+ * the tube set into it, a control strip below (speaker grille, toggle switches, a
+ * tuning drum behind a window, a volume knob, the colour badge), a dark CRT housing
+ * behind; a tenkeyless keyboard in two tones on a sloped case; a two-button mouse
+ * whose cord loops round to the back. Units are about 2 mm: x right, y up, z toward
+ * the viewer; the shell's front is at z = FRONT.
  *
  * Every part is a group with a build entry: when it comes in (fractions of the
  * build) and how: travelling home from an offset, drawing along (cords), or, for
- * the contact shadows, darkening as the part above comes down. Parts never fade:
- * big ones arrive from out of frame, small ones emerge from inside the surface
- * they sit in, so nothing is ever see-through.
+ * the contact shadows, darkening as the part above comes down. The monitor comes
+ * down whole; the keyboard and mouse slide in; the keys are set down one by one;
+ * the cords draw in last. Every part is rigid, in its final shape throughout.
  */
 
 export interface BuildPart {
@@ -23,42 +27,59 @@ export interface BuildPart {
   /** A cord: grows along its length. */
   draw?: THREE.Mesh[];
   /** Set down into place: a short fall, fading in, levelling from a slight tilt (the keys). */
-  settle?: { mesh: THREE.Mesh; tilt: [number, number] };
+  settle?: { mesh: THREE.Mesh; tilt: [number, number]; pitch?: number };
   /** A contact shadow: darkens with the part above it. */
   shadow?: THREE.Mesh;
 }
 
-export const CASE = { w: 124, d: 138, top: 172, plinth: 4 };
-export const FRONT = CASE.d / 2;
-const CRT = { x0: -42, x1: 42, y0: 82, y1: 152, r: 9 };
-const BEZEL = { x0: -50, x1: 50, y0: 74, y1: 160, r: 7 };
-const SLOT = { x0: 6, x1: 46, y0: 44, y1: 49.5 };
-const BADGE = { x0: -48, x1: -40, y0: 41, y1: 51 };
-const JACK = { x0: -52, x1: -44, y0: 8, y1: 13.5 };
-// Plans from the illustration: z0 is the back edge (toward the case), d runs to the front.
-const KB = { x: -72, z0: 86, w: 144, d: 56 };
-const KB_Z = 1.6;
-const KB_TOP = 8.6;
-const U = 9;
-const KEYS_X = -U * 7.5;
-const KEYS_Z = 90.5;
-const ROWS = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
-  [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
-  [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],
-  [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75],
-  [1.5, 1.5, 9, 1.5, 1.5],
+/** The monitor's putty shell: the front part, ahead of the dark tube housing. */
+export const CASE = { w: 136, d: 64, top: 150, plinth: 5 };
+export const FRONT = 69;
+const SHELL_Z0 = FRONT - CASE.d;
+/** The dark face plate, the darker surround the tube sits in, and the tube. */
+const PANEL = { x0: -60, x1: 60, y0: 44, y1: 140, r: 4 };
+const SURROUND = { x0: -51, x1: 51, y0: 53, y1: 135, r: 8 };
+const CRT = { x0: -42, x1: 42, y0: 59, y1: 129, r: 9 };
+/** The control strip runs from the plinth up to this seam. */
+const BAND_TOP = 40;
+const GRILLE = { x0: -62, x1: -26, y0: 11, y1: 35 };
+const SWITCHES = { x: -11, y: 25, w: 22, h: 12 };
+const TUNING = { x0: 4, x1: 36, y0: 21, y1: 35 };
+const KNOB = { x: 51, y: 25 };
+const BADGE = { x0: 6, x1: 20, y0: 11.5, y1: 16 };
+
+/* The keyboard: a tenkeyless board on a case that rises toward the back. */
+const U = 8.4;
+const KB = { x: -84, z0: 84, w: 168, d: 70 };
+const KB_FOOT = 0.8;
+const KB_FRONT_H = 6;
+const KB_BACK_H = 12.5;
+const KB_PITCH = Math.atan((KB_BACK_H - KB_FRONT_H) / KB.d);
+/** The case top's height at depth z. */
+const kbTop = (z: number) => KB_FRONT_H + ((KB_BACK_H - KB_FRONT_H) * (KB.z0 + KB.d - z)) / KB.d;
+const KEYS_X = -U * 9.125;
+const KEYS_Z = KB.z0 + 9;
+const NAV_X = U * 15.25;
+const D = true;
+type Key = [width: number, dark?: boolean];
+const n = (count: number, width = 1, dark = false): Key[] => Array.from({ length: count }, () => [width, dark]);
+/** Rows from the back, as [width in keys, dark]; a negative width is a gap. */
+const MAIN: Key[][] = [
+  [[1, D], [-1], ...n(4), [-0.5], ...n(4, 1, D), [-0.5], ...n(4)],
+  [...n(13), [2, D]],
+  [[1.5, D], ...n(12), [1.5, D]],
+  [[1.75, D], ...n(11), [2.25, D]],
+  [[2.25, D], ...n(10), [2.75, D]],
+  [...n(3, 1.25, D), [6.25], ...n(4, 1.25, D)],
 ];
-const ROW_H = [5.6, 5.2, 4.8, 4.4, 4];
-const MOUSE = { x: 88, z0: 98, w: 30, d: 50, h: 10 };
-const COIL = { x: -48, y: 4.2, r: 2.2, from: 75, to: 84, turns: 7 };
-/** The illustration's (x, depth, height) as three's (x, height, depth). */
-const ill = ([x, d, h]: [number, number, number]): [number, number, number] => [x, h, d];
+const NAV: Key[][] = [n(3, 1, D), n(3, 1, D), n(3, 1, D), [], [[-1], [1, D]], n(3, 1, D)];
+const KEY_H = [4.6, 5.2, 4.9, 4.6, 4.6, 4.9];
+
+const MOUSE = { x: 96, z0: 104, w: 30, d: 46, h: 11 };
 
 /** The screen as the camera ends on it: its centre, plane and size. */
 export const SCREEN = {
-  // Just proud of the case's face and inside the bezel's raised rim (which stands to
-  // FRONT + 1.6), so the glass sits back in it.
+  // Just proud of the surround it sits in, so the glass sits back in the face.
   centre: new THREE.Vector3((CRT.x0 + CRT.x1) / 2, (CRT.y0 + CRT.y1) / 2, FRONT + 0.3),
   w: CRT.x1 - CRT.x0,
   h: CRT.y1 - CRT.y0,
@@ -84,6 +105,23 @@ function noiseTexture(size = 256, amount = 18) {
   return t;
 }
 
+/** Fine ribs round a drum: stripes across a texture that wraps round a cylinder. */
+function ribTexture() {
+  const c = document.createElement("canvas");
+  c.width = 8;
+  c.height = 2;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#e4e2dd";
+  g.fillRect(0, 0, 8, 2);
+  g.fillStyle = "#8f8d88";
+  g.fillRect(0, 0, 3, 2);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.repeat.set(64, 1);
+  return t;
+}
+
 export function materials() {
   const grain = noiseTexture();
   const plastic = (color: string, roughness: number) =>
@@ -98,10 +136,19 @@ export function materials() {
       roughnessMap: grain,
     });
   return {
-    shell: plastic("#3b3e43", 0.58),
-    plinth: plastic("#2b2d31", 0.7),
-    key: plastic("#44474c", 0.62),
-    keyboard: plastic("#383b40", 0.6),
+    // A cool grey family, from the same blue-charcoal as the room: light grey shells
+    // and keys, slate for the modifiers, the room's own charcoal for the housing.
+    shell: plastic("#868b92", 0.5),
+    housing: plastic("#1e2126", 0.5),
+    plinth: plastic("#15171a", 0.7),
+    face: plastic("#15171a", 0.42),
+    surround: plastic("#0c0e10", 0.5),
+    key: plastic("#959aa1", 0.55),
+    keyDark: plastic("#454a51", 0.55),
+    keyboard: plastic("#81868d", 0.5),
+    well: plastic("#3d4248", 0.6),
+    metal: new THREE.MeshPhysicalMaterial({ color: "#c9c8c4", metalness: 0.75, roughness: 0.3, clearcoat: 0.3 }),
+    drum: new THREE.MeshStandardMaterial({ map: ribTexture(), roughness: 0.45, metalness: 0.3 }),
     groove: new THREE.MeshStandardMaterial({ color: "#121316", roughness: 0.9 }),
     slot: new THREE.MeshStandardMaterial({ color: "#07080a", roughness: 0.8 }),
     glassBase: new THREE.MeshStandardMaterial({ color: "#090b0e", roughness: 0.35 }),
@@ -114,33 +161,16 @@ export function materials() {
       depthWrite: false,
       envMapIntensity: 1.4,
     }),
-    cord: new THREE.MeshStandardMaterial({ color: "#2a2c30", roughness: 0.45 }),
+    cord: new THREE.MeshStandardMaterial({ color: "#7d838a", roughness: 0.5 }),
   };
 }
 export type Materials = ReturnType<typeof materials>;
 
 /* -------------------------------------------------------------- helpers */
 
-/*
- * The morph: a rounded box carries a second, soft shape as a morph target, the same box
- * with its corners rounded nearly to a pebble and a few percent smaller. Weight 1 is
- * soft, 0 the crisp final shape (run.ts eases it as each part lands). RoundedBoxGeometry
- * has the same vertices for any radius, so the two shapes line up point for point.
- */
-function withSoftShape(geo: RoundedBoxGeometry, w: number, h: number, d: number, segments: number, shrink = 0.94) {
-  const soft = new RoundedBoxGeometry(w * shrink, h * shrink, d * shrink, segments, (Math.min(w, h, d) * shrink) / 2 * 0.98);
-  geo.morphAttributes.position = [soft.attributes.position!];
-  geo.morphAttributes.normal = [soft.attributes.normal!];
-  geo.morphTargetsRelative = false;
-  soft.dispose();
-  return geo;
-}
-
-/** A rounded box. `soft` gives it the soft shape to firm up from; heavy parts stay rigid. */
-const box = (w: number, h: number, d: number, r: number, mat: THREE.Material, segments = 4, soft = true) => {
-  const geo = new RoundedBoxGeometry(w, h, d, segments, Math.min(r, w / 2, h / 2, d / 2) * 0.999);
-  const m = new THREE.Mesh(soft ? withSoftShape(geo, w, h, d, segments) : geo, mat);
-  if (soft) m.morphTargetInfluences = [0];
+/** A rounded box. Every part is rigid: it arrives in its final shape. */
+const box = (w: number, h: number, d: number, r: number, mat: THREE.Material, segments = 4) => {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, segments, Math.min(r, w / 2, h / 2, d / 2) * 0.999), mat);
   m.castShadow = true;
   m.receiveShadow = true;
   return m;
@@ -175,6 +205,28 @@ function roundedHole(x0: number, y0: number, x1: number, y1: number, r: number) 
   return p;
 }
 
+/** A polygon with each corner rounded by its own radius (counter-clockwise points). */
+function roundedPolygon(points: [number, number][], radii: number[]) {
+  const s = new THREE.Shape();
+  const count = points.length;
+  points.forEach((p, i) => {
+    const prev = points[(i + count - 1) % count]!;
+    const next = points[(i + 1) % count]!;
+    const r = radii[i]!;
+    const towards = (q: [number, number]) => {
+      const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      return [p[0] + ((q[0] - p[0]) * r) / len, p[1] + ((q[1] - p[1]) * r) / len] as const;
+    };
+    const a = towards(prev);
+    const b = towards(next);
+    if (i === 0) s.moveTo(a[0], a[1]);
+    else s.lineTo(a[0], a[1]);
+    s.quadraticCurveTo(p[0], p[1], b[0], b[1]);
+  });
+  s.closePath();
+  return s;
+}
+
 /** A flat rounded rectangle with UVs from 0 to 1 across it. */
 function roundedPlane(w: number, h: number, r: number) {
   const g = new THREE.ShapeGeometry(roundedShape(-w / 2, -h / 2, w / 2, h / 2, r), 8);
@@ -183,6 +235,48 @@ function roundedPlane(w: number, h: number, r: number) {
   for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
   return g;
 }
+
+/** A plate with a rounded outline and a rounded hole, `depth` thick, its back at z = 0. */
+function frame(
+  outer: { x0: number; y0: number; x1: number; y1: number; r: number },
+  inner: { x0: number; y0: number; x1: number; y1: number; r: number },
+  depth: number,
+  mat: THREE.Material,
+) {
+  const shape = roundedShape(outer.x0, outer.y0, outer.x1, outer.y1, outer.r);
+  shape.holes.push(roundedHole(inner.x0, inner.y0, inner.x1, inner.y1, inner.r));
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 12 }), mat);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+/**
+ * Printing on a face: a transparent decal over the rectangle (x0, y0)–(x1, y1) of the
+ * face plane, drawn in the model's own units (y up, as on the face).
+ */
+function printed(x0: number, y0: number, x1: number, y1: number, z: number, draw: (g: CanvasRenderingContext2D, at: (x: number, y: number) => [number, number]) => void) {
+  const ppu = 28;
+  const c = document.createElement("canvas");
+  c.width = Math.round((x1 - x0) * ppu);
+  c.height = Math.round((y1 - y0) * ppu);
+  const g = c.getContext("2d")!;
+  g.scale(ppu, ppu);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  draw(g, (x, y) => [x - x0, y1 - y]);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(x1 - x0, y1 - y0),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }),
+  );
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, z);
+  m.receiveShadow = true;
+  return m;
+}
+const TYPE = "Helvetica Neue, Helvetica, Arial, sans-serif";
 
 function radialTexture() {
   const c = document.createElement("canvas");
@@ -291,6 +385,12 @@ export function buildModel(mat: Materials) {
     children.forEach((c) => g.add(c));
     return g;
   };
+  const strip = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material = mat.groove) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    m.position.set(x, y, z);
+    m.receiveShadow = true;
+    return m;
+  };
 
   // Contact shadows: soft dark pools where things meet the floor.
   const shadowTex = radialTexture();
@@ -305,66 +405,80 @@ export function buildModel(mat: Materials) {
     return m;
   };
 
-  /* The plinth, then the case dropping onto it. */
-  const caseShadow = contact(CASE.w * 1.5, CASE.d * 1.45, 0, 0);
+  /* The monitor, finished, plinth and controls and all: it comes down in one piece. */
+  const caseShadow = contact(CASE.w * 1.5, 150, 0, 4);
   add(caseShadow, 0, 0.22, [0, 0, 0], { shadow: caseShadow });
-  // Heavy parts are rigid: a case that wobbles soft as it falls reads as jelly.
-  const plinth = box(CASE.w - 6, CASE.plinth, CASE.d - 6, 2, mat.plinth, 4, false);
-  plinth.position.set(0, CASE.plinth / 2, 0);
-  add(group(plinth), 0, 0.08, [0, 26, 0], { heavy: true });
+  const monitor = new THREE.Group();
+  const plinth = box(CASE.w - 14, CASE.plinth, CASE.d - 8, 1.5, mat.plinth, 4);
+  plinth.position.set(0, CASE.plinth / 2, SHELL_Z0 + CASE.d / 2 - 1);
+  monitor.add(plinth);
 
-  const bodyH = CASE.top - CASE.plinth;
-  const body = box(CASE.w, bodyH, CASE.d, 9, mat.shell, 6, false);
-  body.position.set(0, CASE.plinth + bodyH / 2, 0);
-  add(group(body), 0.05, 0.18, [0, 280, 0], { heavy: true });
+  const shellH = CASE.top - CASE.plinth;
+  const shell = box(CASE.w, shellH, CASE.d, 5, mat.shell, 6);
+  shell.position.set(0, CASE.plinth + shellH / 2, SHELL_Z0 + CASE.d / 2);
+  // The tube's housing behind it, stepping down toward the neck.
+  const housing = box(128, 134, 48, 10, mat.housing, 6);
+  housing.position.set(0, CASE.plinth + 67, SHELL_Z0 - 22);
+  const neck = box(92, 96, 34, 12, mat.housing, 6);
+  neck.position.set(0, CASE.plinth + 62, SHELL_Z0 - 56);
+  monitor.add(shell, housing, neck);
 
-  /* Details cut into the case: they rise out of its surfaces. */
+  /* Details on the shell. */
   const details = new THREE.Group();
-  const strip = (w: number, h: number, d: number, x: number, y: number, z: number) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat.groove);
-    m.position.set(x, y, z);
-    m.receiveShadow = true;
-    details.add(m);
-  };
-  // The carry handle recess and the vents on top.
-  const handle = box(84, 1.2, 12, 5.5, mat.groove, 4, false);
-  handle.castShadow = false;
-  handle.position.set(0, CASE.top - 0.45, -CASE.d / 2 + 14);
-  details.add(handle);
-  for (let i = 0; i < 9; i++) strip(68, 0.3, 1.4, 0, CASE.top + 0.02, -CASE.d / 2 + 28.7 + i * 3.4);
-  // The back cover's seam over the top and down the sides, and the front lip.
-  const seamZ = FRONT - 14;
-  strip(CASE.w - 14, 0.3, 0.7, 0, CASE.top + 0.02, seamZ);
-  strip(0.3, bodyH - 14, 0.7, CASE.w / 2 + 0.02, CASE.plinth + bodyH / 2, seamZ);
-  strip(0.3, bodyH - 14, 0.7, -CASE.w / 2 - 0.02, CASE.plinth + bodyH / 2, seamZ);
-  strip(CASE.w - 14, 0.6, 0.3, 0, 20, FRONT + 0.02);
-  // Side vents on the right, high at the back and low down.
-  for (let i = 0; i < 15; i++) strip(0.3, 32, 1.4, CASE.w / 2 + 0.02, CASE.top - 30, -CASE.d / 2 + 12 + i * 3.2);
-  for (let i = 0; i < 10; i++) strip(0.3, 14, 1.4, CASE.w / 2 + 0.02, 35, -CASE.d / 2 + 12 + i * 3.2);
-  add(details, 0.22, 0.14, [0, -1.2, 0]);
+  // The control strip's seam round the front and sides, standing a clear 0.1 off the
+  // surface (closer, and the shell shows through it in flecks).
+  details.add(strip(CASE.w - 10, 0.5, 0.3, 0, BAND_TOP, FRONT + 0.1));
+  details.add(strip(0.3, 0.5, CASE.d - 8, CASE.w / 2 + 0.1, BAND_TOP, SHELL_Z0 + CASE.d / 2));
+  details.add(strip(0.3, 0.5, CASE.d - 8, -CASE.w / 2 - 0.1, BAND_TOP, SHELL_Z0 + CASE.d / 2));
+  monitor.add(details);
+  // Cooling fins standing off the side, low at the front.
+  const fins = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const fin = box(2.4, 13, 1.7, 0.7, mat.shell, 3);
+    fin.position.set(CASE.w / 2 + 0.6, 21, FRONT - 7 - i * 3.6);
+    fins.add(fin);
+  }
+  monitor.add(fins);
 
-  /* The front: bezel and screen, then the badge, floppy drive and jack, each
-     emerging from inside the case. */
-  const bezelShape = roundedShape(BEZEL.x0, BEZEL.y0, BEZEL.x1, BEZEL.y1, BEZEL.r);
-  bezelShape.holes.push(roundedHole(CRT.x0, CRT.y0, CRT.x1, CRT.y1, CRT.r));
-  // As on the real 128K: a flat face with the screen set in by a crisp, shallow step,
-  // not a raised, bevelled plate (whose rounded lower edge read as a tray under the
-  // screen). A fine groove outlines the surround and a thin dark frame holds the glass.
-  const bezelGeo = new THREE.ExtrudeGeometry(bezelShape, { depth: 0.5, bevelEnabled: false, curveSegments: 16 });
-  const bezel = new THREE.Mesh(bezelGeo, mat.shell);
-  bezel.castShadow = false;
-  bezel.receiveShadow = true;
-  bezel.position.z = FRONT - 0.1;
-  const ring = (x0: number, y0: number, x1: number, y1: number, r: number, inset: number, z: number) => {
-    const shape = roundedShape(x0, y0, x1, y1, r);
-    shape.holes.push(roundedHole(x0 + inset, y0 + inset, x1 - inset, y1 - inset, Math.max(0.5, r - inset)));
-    const m = new THREE.Mesh(new THREE.ShapeGeometry(shape, 16), mat.groove);
+  /*
+   * The face: a dark plate, the darker surround, a fine black frame, and the tube.
+   * Flat rings, one a clear 0.1 in front of the next, with no walls between them: a
+   * step's wall here is a fraction of a pixel wide (less on a phone), and a line that
+   * thin breaks into beads that crawl as the camera moves. Each ring tucks its outer
+   * edge under the one in front, so no two edges coincide.
+   */
+  type Rect = { x0: number; y0: number; x1: number; y1: number; r: number };
+  const grow = (o: Rect, by: number): Rect => ({ x0: o.x0 - by, y0: o.y0 - by, x1: o.x1 + by, y1: o.y1 + by, r: o.r + by });
+  const ring = (outer: Rect, inner: Rect, z: number, material: THREE.Material) => {
+    const shape = roundedShape(outer.x0, outer.y0, outer.x1, outer.y1, outer.r);
+    shape.holes.push(roundedHole(inner.x0, inner.y0, inner.x1, inner.y1, inner.r));
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(shape, 16), material);
     m.position.z = z;
     m.receiveShadow = true;
     return m;
   };
-  const groove = ring(BEZEL.x0 - 0.7, BEZEL.y0 - 0.7, BEZEL.x1 + 0.7, BEZEL.y1 + 0.7, BEZEL.r + 0.7, 0.55, FRONT + 0.02);
-  const frame = ring(CRT.x0 - 1.4, CRT.y0 - 1.4, CRT.x1 + 1.4, CRT.y1 + 1.4, CRT.r + 1.4, 1.4, FRONT + 0.42);
+  const plate = ring(PANEL, SURROUND, FRONT + 0.3, mat.face);
+  const surround = ring(grow(SURROUND, 0.4), grow(CRT, 1.4), FRONT + 0.2, mat.surround);
+  // Solid, not a ring: through a hole the size of the glass, the light shell would show
+  // in a sliver beside the glass, which stands in front of it.
+  const backing = grow(CRT, 1.8);
+  const glassFrame = new THREE.Mesh(new THREE.ShapeGeometry(roundedShape(backing.x0, backing.y0, backing.x1, backing.y1, backing.r), 16), mat.groove);
+  glassFrame.position.z = FRONT + 0.1;
+  glassFrame.receiveShadow = true;
+  // The face's printing: the channel scale under the tube, the supply at the top right.
+  // Kept off the tube, so nothing transparent ever lies over the glass.
+  const scalePrint = printed(PANEL.x0 + 2, PANEL.y0 + 1, PANEL.x1 - 2, SURROUND.y0 - 0.5, FRONT + 0.4, (g, to) => {
+    g.fillStyle = "rgba(170,170,166,0.7)";
+    g.font = `500 1.5px ${TYPE}`;
+    const scale = (y: number, labels: string[]) => labels.forEach((t, i) => t && g.fillText(t, ...to(-38 + i * 7.6, y)));
+    scale(49.6, ["VHF", "3 4", "4", "6", "8", "", "", "7 9", "11", "13", "X-CH"]);
+    scale(47.2, ["UHF", "14", "20", "30", "46", "16", "65", "70", "60", "80", "X-CHH"]);
+  });
+  const supplyPrint = printed(SURROUND.x1 + 0.5, SURROUND.y1 - 6, PANEL.x1 - 0.5, PANEL.y1 - 0.5, FRONT + 0.4, (g, to) => {
+    g.font = `700 1.9px ${TYPE}`;
+    g.fillStyle = "rgba(150,150,146,0.75)";
+    g.fillText("AC/DC", ...to((SURROUND.x1 + PANEL.x1) / 2, PANEL.y1 - 2.4));
+  });
 
   const screenW = SCREEN.w;
   const screenH = SCREEN.h;
@@ -383,142 +497,221 @@ export function buildModel(mat: Materials) {
   page.renderOrder = 1;
   glow.renderOrder = 2;
   glass.renderOrder = 3;
-  add(group(groove, bezel, frame, glassBase, page, glow, glass), 0.29, 0.16, [0, 0, -9]);
+  monitor.add(plate, surround, glassFrame, scalePrint, supplyPrint, glassBase, page, glow, glass);
 
-  const badgeCanvas = document.createElement("canvas");
-  badgeCanvas.width = 32;
-  badgeCanvas.height = 48;
-  const bg = badgeCanvas.getContext("2d")!;
-  ["#6fae5c", "#d9b44a", "#d98a3d", "#c85550", "#8d5aa0", "#4f8fc9"].forEach((c, i) => {
-    bg.fillStyle = c;
-    bg.fillRect(0, i * 8, 32, 8);
+  /* The control strip. */
+  // The speaker grille: a dark well with putty slats standing in it.
+  const grille = group();
+  const grilleWell = box(GRILLE.x1 - GRILLE.x0, GRILLE.y1 - GRILLE.y0, 1, 1, mat.surround, 3);
+  grilleWell.position.set((GRILLE.x0 + GRILLE.x1) / 2, (GRILLE.y0 + GRILLE.y1) / 2, FRONT - 0.3);
+  grille.add(grilleWell);
+  for (let i = 0; i < 12; i++) {
+    const slat = box(1.7, GRILLE.y1 - GRILLE.y0, 2.4, 0.6, mat.shell, 3);
+    slat.position.set(GRILLE.x0 + 1.4 + i * 3.02, (GRILLE.y0 + GRILLE.y1) / 2, FRONT + 0.4);
+    grille.add(slat);
+  }
+  monitor.add(grille);
+
+  // Three toggle switches in a grey well.
+  const switches = group();
+  const switchWell = box(SWITCHES.w, SWITCHES.h, 1.2, 1, mat.well);
+  switchWell.position.set(SWITCHES.x, SWITCHES.y, FRONT);
+  switches.add(switchWell);
+  for (let i = -1; i <= 1; i++) {
+    const toggle = box(4.2, 9, 3.4, 0.8, mat.key);
+    toggle.position.set(SWITCHES.x + i * 7, SWITCHES.y, FRONT + 1.3);
+    switches.add(toggle);
+  }
+  monitor.add(switches);
+
+  // The tuning drum, ribbed, turning behind a window in a raised frame.
+  const tuning = group();
+  const pane = { x0: TUNING.x0 + 2, y0: TUNING.y0 + 2, x1: TUNING.x1 - 2, y1: TUNING.y1 - 2, r: 1 };
+  const tuningFrame = frame({ ...TUNING, r: 2 }, pane, 1.8, mat.shell);
+  tuningFrame.position.z = FRONT - 0.1;
+  const tuningWell = strip(pane.x1 - pane.x0, pane.y1 - pane.y0, 0.4, (pane.x0 + pane.x1) / 2, (pane.y0 + pane.y1) / 2, FRONT, mat.surround);
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, pane.x1 - pane.x0 - 2, 64), mat.drum);
+  drum.rotation.z = Math.PI / 2;
+  drum.position.set((pane.x0 + pane.x1) / 2, (pane.y0 + pane.y1) / 2, FRONT - 4);
+  drum.castShadow = drum.receiveShadow = true;
+  tuning.add(tuningFrame, tuningWell, drum);
+  monitor.add(tuning);
+
+  // The volume knob in its own well.
+  const knob = group();
+  const knobWell = box(16, 13, 1.2, 1.2, mat.well);
+  knobWell.position.set(KNOB.x, KNOB.y, FRONT);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 4.2, 4.2, 40), mat.metal);
+  cap.rotation.x = Math.PI / 2;
+  cap.position.set(KNOB.x, KNOB.y, FRONT + 2.4);
+  cap.castShadow = cap.receiveShadow = true;
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.8, 40), mat.surround);
+  collar.rotation.x = Math.PI / 2;
+  collar.position.set(KNOB.x, KNOB.y, FRONT + 0.6);
+  knob.add(knobWell, collar, cap);
+  monitor.add(knob);
+
+  // The colour badge, and the strip's printing.
+  const stripes = (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    g.fillStyle = "#1a1a1b";
+    g.fillRect(x, y, w, h);
+    ["#c8473c", "#4d9a5a", "#3d68b8"].forEach((c, i) => {
+      g.fillStyle = c;
+      g.fillRect(x + 0.5 + (i * (w - 1)) / 3, y + 0.5, (w - 1) / 3 - 0.25, h - 1);
+    });
+  };
+  const bandPrint = printed(-64, CASE.plinth + 3, 64, BAND_TOP - 0.6, FRONT + 0.1, (g, at) => {
+    g.fillStyle = "rgba(58,55,50,0.85)";
+    g.font = `600 1.5px ${TYPE}`;
+    ["AFC", "RECALL", "BAND"].forEach((t, i) => g.fillText(t, ...at(SWITCHES.x + (i - 1) * 7, SWITCHES.y + 8)));
+    ["OFF", "ON", "OFF"].forEach((t, i) => g.fillText(t, ...at(SWITCHES.x + (i - 1) * 7, SWITCHES.y - 8)));
+    g.fillText("◂  TUNING  ▸", ...at((TUNING.x0 + TUNING.x1) / 2, TUNING.y1 + 2));
+    g.fillText("PULL-ON/VOL", ...at(KNOB.x, KNOB.y + 8.6));
+    const [bx, by] = at(BADGE.x0, BADGE.y1);
+    stripes(g, bx, by, BADGE.x1 - BADGE.x0, BADGE.y1 - BADGE.y0);
   });
-  const badgeTex = new THREE.CanvasTexture(badgeCanvas);
-  badgeTex.colorSpace = THREE.SRGBColorSpace;
-  const badge = new THREE.Mesh(new THREE.PlaneGeometry(BADGE.x1 - BADGE.x0 - 2, BADGE.y1 - BADGE.y0 - 2), new THREE.MeshStandardMaterial({ map: badgeTex, roughness: 0.4 }));
-  badge.position.set((BADGE.x0 + BADGE.x1) / 2, (BADGE.y0 + BADGE.y1) / 2, FRONT + 0.15);
-  const badgeWell = box(BADGE.x1 - BADGE.x0, BADGE.y1 - BADGE.y0, 1, 1.4, mat.groove);
-  badgeWell.position.set(badge.position.x, badge.position.y, FRONT - 0.42);
-  add(group(badgeWell, badge), 0.4, 0.1, [0, 0, -3]);
-
-  const slot = box(SLOT.x1 - SLOT.x0, SLOT.y1 - SLOT.y0, 2, 2.2, mat.slot);
-  slot.position.set((SLOT.x0 + SLOT.x1) / 2, (SLOT.y0 + SLOT.y1) / 2, FRONT - 0.85);
-  const eject = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1, 16), mat.slot);
-  eject.rotation.x = Math.PI / 2;
-  eject.position.set(SLOT.x1 + 5, SLOT.y0 + 1, FRONT - 0.4);
-  add(group(slot, eject), 0.43, 0.1, [0, 0, -3]);
-
-  const jack = box(JACK.x1 - JACK.x0, JACK.y1 - JACK.y0, 2, 1.1, mat.slot);
-  jack.position.set((JACK.x0 + JACK.x1) / 2, (JACK.y0 + JACK.y1) / 2, FRONT - 0.85);
-  add(group(jack), 0.48, 0.08, [0, 0, -3]);
+  monitor.add(bandPrint);
+  add(monitor, 0.02, 0.2, [0, 280, 0], { heavy: true });
 
   /* The keyboard slides in from the front, then its keys drop in, row by row. */
   const kbCx = KB.x + KB.w / 2;
   const kbCz = KB.z0 + KB.d / 2;
-  const kbShadow = contact(KB.w * 1.25, KB.d * 1.6, kbCx, kbCz);
+  const kbShadow = contact(KB.w * 1.2, KB.d * 1.5, kbCx, kbCz);
   const kbBase = group();
-  const feet = [
-    [KB.x + 8, KB.z0 + 8],
-    [KB.x + KB.w - 8, KB.z0 + 8],
-    [KB.x + 8, KB.z0 + KB.d - 8],
-    [KB.x + KB.w - 8, KB.z0 + KB.d - 8],
-  ];
-  for (const [x, z] of feet) {
-    const f = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, KB_Z, 16), mat.plinth);
-    f.position.set(x!, KB_Z / 2, z!);
+  for (const [x, z] of [
+    [KB.x + 10, KB.z0 + 8],
+    [KB.x + KB.w - 10, KB.z0 + 8],
+    [KB.x + 10, KB.z0 + KB.d - 8],
+    [KB.x + KB.w - 10, KB.z0 + KB.d - 8],
+  ]) {
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, KB_FOOT, 16), mat.plinth);
+    f.position.set(x!, KB_FOOT / 2, z!);
     kbBase.add(f);
   }
-  const kbBody = box(KB.w, KB_TOP - KB_Z, KB.d, 3.5, mat.keyboard);
-  kbBody.position.set(kbCx, KB_Z + (KB_TOP - KB_Z) / 2, kbCz);
+  // The case: its side profile, low at the front and rising toward the back, pushed
+  // across the board's width. Profile x is depth (toward the viewer), y height.
+  const bevel = 1.2;
+  const profile = roundedPolygon(
+    [
+      [KB.z0 + bevel, KB_FOOT + bevel],
+      [KB.z0 + KB.d - bevel, KB_FOOT + bevel],
+      [KB.z0 + KB.d - bevel, KB_FRONT_H - bevel],
+      [KB.z0 + bevel, KB_BACK_H - bevel],
+    ],
+    [1, 1, 2.6, 2.6],
+  );
+  const kbGeo = new THREE.ExtrudeGeometry(profile, { depth: KB.w - 2 * bevel, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 8 });
+  // Extruded along z; turn it so the profile's x runs along depth and the extrusion along x.
+  kbGeo.rotateY(-Math.PI / 2);
+  kbGeo.translate(KB.x + KB.w - bevel, 0, 0);
+  const kbBody = new THREE.Mesh(kbGeo, mat.keyboard);
+  kbBody.castShadow = kbBody.receiveShadow = true;
   kbBase.add(kbBody);
-  const well = box(U * 15 + 2.8, 0.6, U * 5 + 2.8, 1.8, mat.groove);
+  // The dark well the keys stand in, on the slope.
+  const keysW = U * 18.25 + 2.4;
+  const keysD = U * 6.35 + 2.4;
+  const wellZ = KEYS_Z - 1.2 + keysD / 2;
+  const well = box(keysW, 0.6, keysD, 1.6, mat.surround, 3);
   well.castShadow = false;
-  well.position.set(0, KB_TOP - 0.2, KEYS_Z - 1.4 + (U * 5 + 2.8) / 2);
+  well.rotation.x = KB_PITCH;
+  well.position.set(KEYS_X - 1.2 + keysW / 2, kbTop(wellZ) - 0.1, wellZ);
   kbBase.add(well);
+  // The colour badge on the front edge, at the right.
+  const kbBadge = printed(KB.x + KB.w - 26, 2, KB.x + KB.w - 14, 4.4, KB.z0 + KB.d + 0.1, (g, at) => {
+    const [x, y] = at(KB.x + KB.w - 26, 4.4);
+    stripes(g, x, y, 12, 2.4);
+  });
+  kbBase.add(kbBadge);
   kbShadow.material.opacity = 1;
   kbBase.add(kbShadow);
-  add(kbBase, 0.5, 0.12, [0, 0, 150]);
+  add(kbBase, 0.3, 0.12, [0, 0, 150]);
 
   const keyGeo = new Map<string, RoundedBoxGeometry>();
-  ROWS.forEach((row, r) => {
-    let x = KEYS_X;
-    row.forEach((width, c) => {
+  const placeRow = (row: Key[], r: number, x0: number) => {
+    let x = x0;
+    const z = KEYS_Z + (r === 0 ? 0 : (r + 0.35) * U) + U / 2;
+    row.forEach(([width, dark], c) => {
+      if (width < 0) {
+        x -= width * U;
+        return;
+      }
       const w = width * U - 1.4;
-      const h = ROW_H[r]!;
+      const h = KEY_H[r]!;
       const k = `${w}|${h}`;
       if (!keyGeo.has(k)) keyGeo.set(k, new RoundedBoxGeometry(w, h, U - 1.4, 3, 1.1));
       // Its own copy of the material, to fade in on its own.
-      const key = new THREE.Mesh(keyGeo.get(k)!, mat.key.clone());
+      const key = new THREE.Mesh(keyGeo.get(k)!, (dark ? mat.keyDark : mat.key).clone());
       key.castShadow = key.receiveShadow = true;
-      key.position.set(x + (width * U) / 2, KB_TOP + h / 2, KEYS_Z + r * U + U / 2);
+      key.position.set(x + (width * U) / 2, kbTop(z) - 1.2 + h / 2, z);
       // Each key is set down onto its switch from just above, in a sweep from the
       // back left to the front right, a touch irregular, as if by hand.
-      const start = 0.58 + r * 0.022 + c * 0.0055 + Math.random() * 0.006;
-      add(group(key), start, 0.085, [0, 10, 0], { settle: { mesh: key, tilt: [(Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3] } });
+      const column = (x - KEYS_X) / U;
+      const start = 0.4 + r * 0.028 + column * 0.0055 + Math.random() * 0.006;
+      add(group(key), start, 0.085, [0, 10, 0], {
+        settle: { mesh: key, tilt: [(Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3], pitch: KB_PITCH },
+      });
       x += width * U;
     });
-  });
+  };
+  MAIN.forEach((row, r) => placeRow(row, r, KEYS_X));
+  NAV.forEach((row, r) => placeRow(row, r, KEYS_X + NAV_X));
 
   /* The mouse slides in from the right. */
   const mouse = group();
-  const mouseBody = box(MOUSE.w, MOUSE.h, MOUSE.d, 7, mat.keyboard, 6);
-  mouseBody.position.set(MOUSE.x + MOUSE.w / 2, MOUSE.h / 2, MOUSE.z0 + MOUSE.d / 2);
-  // The one button across the back third, toward the cord.
-  const button = box(MOUSE.w - 6, 1.2, 15, 2, mat.key);
-  button.position.set(MOUSE.x + MOUSE.w / 2, MOUSE.h + 0.2, MOUSE.z0 + 3 + 7.5);
-  const mouseShadow = contact(MOUSE.w * 1.7, MOUSE.d * 1.5, MOUSE.x + MOUSE.w / 2, MOUSE.z0 + MOUSE.d / 2);
+  const mcx = MOUSE.x + MOUSE.w / 2;
+  const skirt = box(MOUSE.w - 3, 1.4, MOUSE.d - 3, 0.6, mat.plinth, 3);
+  skirt.position.set(mcx, 0.7, MOUSE.z0 + MOUSE.d / 2);
+  const mouseBody = box(MOUSE.w, MOUSE.h - 1, MOUSE.d, 4.5, mat.keyboard, 6);
+  mouseBody.position.set(mcx, 1 + (MOUSE.h - 1) / 2, MOUSE.z0 + MOUSE.d / 2);
+  // Two buttons across the back, toward the cord, with a seam between and in front.
+  const buttons = [-1, 1].map((side) => {
+    const b = box(MOUSE.w / 2 - 3.2, 1.6, 15, 1, mat.keyDark);
+    b.position.set(mcx + side * (MOUSE.w / 4 - 0.3), MOUSE.h - 0.1, MOUSE.z0 + 3 + 7.5);
+    return b;
+  });
+  const mouseBadge = printed(MOUSE.z0 + MOUSE.d - 15, 4.2, MOUSE.z0 + MOUSE.d - 5, 6.4, 0, (g, at) => {
+    const [x, y] = at(MOUSE.z0 + MOUSE.d - 15, 6.4);
+    stripes(g, x, y, 10, 2.2);
+  });
+  mouseBadge.rotation.y = Math.PI / 2;
+  mouseBadge.position.set(MOUSE.x + MOUSE.w + 0.1, 5.3, MOUSE.z0 + MOUSE.d - 10);
+  const mouseShadow = contact(MOUSE.w * 1.7, MOUSE.d * 1.5, mcx, MOUSE.z0 + MOUSE.d / 2);
   mouseShadow.material.opacity = 1;
-  mouse.add(mouseBody, button, mouseShadow);
-  add(mouse, 0.71, 0.1, [140, 0, 0]);
+  mouse.add(skirt, mouseBody, ...buttons, mouseBadge, mouseShadow);
+  add(mouse, 0.7, 0.1, [140, 0, 0]);
 
   /* Cords: they draw along their length. */
-  const tube = (points: [number, number, number][], radius = 0.8, segments = 120) => {
-    const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...ill(p))));
+  const tube = (points: [number, number, number][], radius = 0.8, segments = 140) => {
+    const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
     const m = new THREE.Mesh(new THREE.TubeGeometry(curve, segments, radius, 8, false), mat.cord);
     m.castShadow = true;
     m.geometry.setDrawRange(0, 0);
     return m;
   };
-  // From the mouse's nose, round the right of the case, to the port on the back.
-  const cx = MOUSE.x + MOUSE.w / 2;
+  // From the mouse's back, up in a loose loop and down to the floor, round to the
+  // tube housing's side.
   const mouseCord = tube([
-    [cx, MOUSE.z0 + 1, 4],
-    [cx, MOUSE.z0 - 3, 1.4],
-    [cx - 3, MOUSE.z0 - 12, 0.9],
-    [86, 60, 0.9],
-    [78, 20, 0.9],
-    [74, -30, 0.9],
-    [70, -64, 0.9],
-    [60, -80, 2],
-    [40, -78, 10],
+    [mcx, 4.5, MOUSE.z0 + 1],
+    [mcx, 6, MOUSE.z0 - 3],
+    [mcx - 2, 7, MOUSE.z0 - 10],
+    [mcx - 6, 3, MOUSE.z0 - 18],
+    [mcx - 10, 0.9, MOUSE.z0 - 28],
+    [96, 0.9, 50],
+    [84, 0.9, 20],
+    [72, 0.9, -6],
+    [64, 3, -18],
+    [56, 9, -22],
   ]);
-  add(group(mouseCord), 0.79, 0.11, [0, 0, 0], { draw: [mouseCord] });
+  add(group(mouseCord), 0.8, 0.12, [0, 0, 0], { draw: [mouseCord] });
 
-  // The keyboard's plug seats in the jack; its cord runs down to the coil and on.
-  const plug = box(JACK.x1 - JACK.x0 - 2, JACK.y1 - JACK.y0 - 1.2, 4, 0.8, mat.keyboard);
-  plug.position.set((JACK.x0 + JACK.x1) / 2, (JACK.y0 + JACK.y1) / 2, FRONT + 2);
-  add(group(plug), 0.76, 0.06, [0, 0, 10]);
-  const lead = tube([
-    [COIL.x, FRONT + 4, (JACK.y0 + JACK.y1) / 2],
-    [COIL.x + 1, FRONT + 5.2, 9],
-    [COIL.x + 2, COIL.from - 0.6, 6.4],
-    [COIL.x + COIL.r, COIL.from, COIL.y],
-  ], 0.7, 40);
-  add(group(lead), 0.79, 0.05, [0, 0, 0], { draw: [lead] });
-  const helix: [number, number, number][] = [];
-  const n = COIL.turns * 16;
-  for (let i = 0; i <= n; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    helix.push([COIL.x + COIL.r * Math.cos(a), COIL.from + ((COIL.to - COIL.from) * i) / n, COIL.y + COIL.r * Math.sin(a)]);
-  }
-  const coil = tube(helix, 0.55, 300);
-  add(group(coil), 0.82, 0.06, [0, 0, 0], { draw: [coil] });
-  const tail = tube([
-    [COIL.x + COIL.r, COIL.to, COIL.y],
-    [COIL.x + 1.4, COIL.to + 1.2, COIL.y],
-    [COIL.x, KB.z0 - 1.4, 4.6],
-  ], 0.7, 20);
-  add(group(tail), 0.86, 0.04, [0, 0, 0], { draw: [tail] });
+  // The keyboard's cord, from its back edge in under the monitor.
+  const kbCord = tube([
+    [-34, 4, KB.z0 + 1],
+    [-34, 2.4, KB.z0 - 4],
+    [-36, 0.9, KB.z0 - 10],
+    [-38, 0.9, FRONT - 6],
+  ], 0.75, 40);
+  add(group(kbCord), 0.77, 0.06, [0, 0, 0], { draw: [kbCord] });
 
   const screen: Screen = { page, glow, glass };
   return { root, parts, screen };

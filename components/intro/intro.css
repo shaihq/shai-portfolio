@@ -128,6 +128,22 @@
   display: none;
 }
 
+/* The 3D intro's lens: a dithered vignette drawn by run.ts, in place of the CSS one
+   below, whose plain gradient bands over the dark room. */
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  opacity: var(--vig, 0);
+}
+
+.intro-overlay[data-mode="3d"]::after {
+  display: none;
+}
+
 /* The lens: edges darken in the camera's close-ups (live.ts sets --vig). */
 .intro-overlay::after {
   content: "";

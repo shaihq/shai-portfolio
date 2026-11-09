@@ -26,6 +26,10 @@
   place-items: safe center;
   padding: 110px 16px 150px;
   overflow-y: auto;
+  /* Its own, as a scroll container: the page's pan-y stops at the nearest one, and
+     without it the browser claims a sideways swipe that starts on the intro and
+     cancels it, so it never reaches the cards. */
+  touch-action: pan-y pinch-zoom;
   scrollbar-width: none;
   transform-origin: 50% 50%;
   will-change: transform, filter, opacity;
@@ -50,12 +54,13 @@
 
 /*
  * The tilt: motion.ts turns each card to face the centre by how far it is from it
- * (--tilt, degrees) and sets it back a touch (--depth); a card in the centre is square
- * and flat. On an inner layer, as the card's own transform belongs to its entrance.
+ * and sets it back a touch, writing the transform inline; a card in the centre is
+ * square and flat. On an inner layer, as the card's own transform belongs to its
+ * entrance.
  */
 .card-body {
   display: block;
-  transform: perspective(1500px) translateZ(var(--depth, 0px)) rotateY(var(--tilt, 0deg));
+  transform: perspective(1500px);
   transform-origin: 50% 45%;
   will-change: transform;
 }
@@ -428,10 +433,12 @@ html[data-intro="done"] .card {
 
 @media (max-width: 560px) {
   .intro-layer {
-    padding: 96px 16px 130px;
+    padding: 96px 24px 130px;
   }
 
   :root {
+    /* A wider gutter on phones: 24px a side, for the intro, cards and slider alike. */
+    --slider-w: min(560px, 100vw - 48px);
     --intro-gap: 48px;
     --card-gap: 16px;
     --well-h: 60px;

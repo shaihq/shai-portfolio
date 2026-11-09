@@ -8,10 +8,11 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { domToPng } from "modern-screenshot";
 import { fitIntro } from "@/components/stage/fit";
 import { primeSignature } from "../live";
+import { onSnapshotClone } from "../snapshot";
 import { buildModel, materials, SCREEN, type BuildPart } from "./model";
 
 /*
- * The intro in real 3D. The Macintosh is assembled part by part while the page
+ * The intro in real 3D. The computer is assembled part by part while the page
  * loads, filmed by a perspective camera that moves in close on each part (with a
  * shallow depth of field on desktop), lit by a studio light with soft shadows and
  * an environment for reflections. Once it is whole the tube warms up and lights
@@ -105,17 +106,16 @@ export function canRun3D() {
  * a share of the full shot]. Azimuth turns from the front (0) toward the right side.
  */
 type Shot = [number, [number, number, number], number, number, number];
-const HERO: [[number, number, number], number, number, number] = [[4, 66, 34], 34, 22, 1];
+const HERO: [[number, number, number], number, number, number] = [[8, 62, 40], 30, 18, 1];
 const SHOTS: Shot[] = [
-  // Three beats: the base (plinth and case), the face, the desk; then the whole.
-  [0, [0, 4, 0], 24, 10, 0.42], //            low and close on the floor: the plinth settles
-  [0.06, [0, 18, 0], 26, 12, 0.48], //        waiting for the case
-  [0.2, [0, 92, 0], 32, 18, 0.86], //         pulled back as it lands
-  [0.33, [0, 117, 69], 14, 8, 0.42], //       pushing in on the face: the screen seats
-  [0.46, [-14, 46, 69], 20, 10, 0.32], //     down the face: badge, floppy slot, jack
-  [0.57, [0, 8, 114], 26, 30, 0.44], //       down to the floor: the keyboard slides in
-  [0.68, [16, 8, 114], 40, 36, 0.38], //      following the keys as they ripple in
-  [0.8, [103, 5, 123], 52, 30, 0.34], //      the mouse arrives
+  // Three beats: the base (plinth and monitor), the face, the desk; then the whole.
+  [0, [0, 40, 36], 26, 12, 0.72], //         the empty floor, waiting for the monitor
+  [0.22, [0, 80, 10], 32, 18, 0.9], //        pulled back as it lands
+  [0.34, [0, 8, 119], 26, 30, 0.5], //        down to the floor: the keyboard slides in
+  [0.5, [-14, 8, 119], 34, 36, 0.42], //      following the keys as they come down
+  [0.64, [24, 8, 119], 42, 36, 0.42],
+  [0.76, [111, 5, 127], 52, 30, 0.36], //     the mouse arrives
+  [0.86, [70, 6, 60], 44, 34, 0.62], //       its cord runs round to the back
   [0.92, ...HERO], //                         pulled out: the whole machine, held a beat
   [1, ...HERO],
 ];
@@ -130,8 +130,40 @@ export function run3D(root: HTMLElement, finish: () => void) {
   const canvas = document.createElement("canvas");
   canvas.className = "intro-3d";
   root.appendChild(canvas);
+  // The lens's darkening at the edges in the close-ups (--vig sets how much). A CSS
+  // gradient over the dark room has only a dozen or so levels to fall through and
+  // draws rings; this one is drawn once, with each pixel's alpha dithered.
+  const vignette = document.createElement("canvas");
+  vignette.className = "intro-vignette";
+  vignette.setAttribute("aria-hidden", "true");
+  root.appendChild(vignette);
+  let vignetteSize = "";
+  function drawVignette() {
+    const w = innerWidth;
+    const h = innerHeight;
+    if (`${w}x${h}` === vignetteSize) return;
+    vignetteSize = `${w}x${h}`;
+    vignette.width = w;
+    vignette.height = h;
+    const g = vignette.getContext("2d")!;
+    const img = g.createImageData(w, h);
+    // As the CSS it replaces: an ellipse 70% × 65% of the window, clear to 40% of the
+    // way out, black at 0.6 at its edge.
+    const rx = w * 0.7;
+    const ry = h * 0.65;
+    for (let y = 0, i = 0; y < h; y++) {
+      const dy = (y + 0.5 - h / 2) / ry;
+      for (let x = 0; x < w; x++, i += 4) {
+        const dx = (x + 0.5 - w / 2) / rx;
+        const t = Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - 0.4) / 0.6));
+        img.data[i + 3] = Math.min(255, Math.floor(t * 0.6 * 255 + Math.random()));
+      }
+    }
+    g.putImageData(img, 0, 0);
+  }
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, small ? 1.5 : 2));
+  // 2× on phones too: at 1.5× the machine's fine edges fall between pixels and crawl.
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.setClearColor(BG, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -174,25 +206,23 @@ export function run3D(root: HTMLElement, finish: () => void) {
   /* -------------------------------------------------------------- model */
   const { root: model, parts, screen } = buildModel(materials());
   scene.add(model);
-  model.traverse((o) => {
+  // Dithered output on every lit and shadowed surface: the room is dark, so the soft
+  // shadows on the floor fade through only a few dozen levels, and without dithering
+  // they band, and the bands slide as the camera moves. (The depth of field path
+  // dithers in its output pass instead; see below.)
+  scene.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) mesh.frustumCulled = false;
+    if (!mesh.isMesh) return;
+    mesh.frustumCulled = false;
+    for (const m of [mesh.material].flat()) if (!(m instanceof THREE.ShaderMaterial)) m.dithering = true;
   });
   const homes = new Map<THREE.Object3D, THREE.Vector3>();
   for (const p of parts) homes.set(p.object, p.object.position.clone());
-  // The meshes in each part that carry a soft shape to morph from (model.ts, withSoftShape).
-  const morphs = new Map<BuildPart, THREE.Mesh[]>();
-  for (const p of parts) {
-    const list: THREE.Mesh[] = [];
-    p.object.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (m.isMesh && m.morphTargetInfluences?.length) list.push(m);
-    });
-    if (list.length) morphs.set(p, list);
-  }
 
   /* ------------------------------------------------------------- camera */
-  const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 5000);
+  // The near plane as far out as the closest shot allows (the landing, ~130 from the
+  // glass): depth precision goes with it, and the face's layers stand 0.1 apart.
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 20, 3000);
   let heroDistance = 600;
   const cam = { tx: 0, ty: 0, tz: 0, az: 0, el: 0, ld: 0, vtx: 0, vty: 0, vtz: 0, vaz: 0, vel: 0, vld: 0 };
   const SPRING = { k: 24, c: 2 * Math.sqrt(24) };
@@ -204,11 +234,12 @@ export function run3D(root: HTMLElement, finish: () => void) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     composer?.setSize(w, h);
-    // The whole machine (a sphere about 175 across) fills the frame at the hero
+    drawVignette();
+    // The whole machine (a sphere about 150 across) fills the frame at the hero
     // distance, whichever way the window is turned.
     const v = THREE.MathUtils.degToRad(FOV) / 2;
     const hz = Math.atan(Math.tan(v) * camera.aspect);
-    heroDistance = 175 / Math.sin(Math.min(v, hz));
+    heroDistance = 150 / Math.sin(Math.min(v, hz));
   }
 
   const shotAt = (p: number) => {
@@ -255,11 +286,25 @@ export function run3D(root: HTMLElement, finish: () => void) {
   let composer: EffectComposer | null = null;
   let bokeh: BokehPass | null = null;
   if (!small && !still) {
-    composer = new EffectComposer(renderer);
+    // Multisampled, like the direct render: the composer's own buffer has no
+    // antialiasing, and its stair-stepped edges crawl as the camera moves.
+    composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     composer.addPass(new RenderPass(scene, camera));
     bokeh = new BokehPass(scene, camera, { focus: 300, aperture: 0, maxblur: 0.006 });
     composer.addPass(bokeh);
-    composer.addPass(new OutputPass());
+    // The output pass is where the frame drops to 8 bits per channel: dither there,
+    // with a fixed sub-level grain, so the dark gradients fade instead of stepping.
+    const output = new OutputPass();
+    output.material.fragmentShader = output.material.fragmentShader.replace(
+      /}\s*$/,
+      /* glsl */ `
+        vec3 p3 = fract(vec3(gl_FragCoord.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        vec2 n = fract((p3.xx + p3.yz) * p3.zy);
+        gl_FragColor.rgb += (n.x + n.y - 1.0) / 255.0;
+      }`,
+    );
+    composer.addPass(output);
   }
   const setFocus = (distance: number, closeness: number) => {
     if (!bokeh) return;
@@ -294,11 +339,6 @@ export function run3D(root: HTMLElement, finish: () => void) {
     if (part.settle) return settle(part, t);
     const e = t >= 1 ? 1 : part.heavy ? drop(t) : land(t);
     o.position.copy(homes.get(o)!).addScaledVector(part.from, 1 - e);
-    // Soft to crisp: a part travels soft and firms into its shape as it lands. Heavy
-    // parts stay soft until they hit, then firm through the rebound.
-    const firm = part.heavy ? smoothstep((t - IMPACT * 0.85) / (1 - IMPACT * 0.85)) : smoothstep((t - 0.25) / 0.75);
-    const soft = t >= 1 ? 0 : 1 - firm;
-    for (const m of morphs.get(part) ?? []) m.morphTargetInfluences![0] = soft;
     if (part.heavy && t >= IMPACT && !o.userData.landed) {
       o.userData.landed = true;
       // The weight lands: a small jolt.
@@ -312,7 +352,7 @@ export function run3D(root: HTMLElement, finish: () => void) {
    * Opaque again once it lands, so it sorts and shadows like any other part.
    */
   function settle(part: BuildPart, t: number) {
-    const { mesh, tilt } = part.settle!;
+    const { mesh, tilt, pitch = 0 } = part.settle!;
     const material = mesh.material as THREE.MeshPhysicalMaterial;
     const home = homes.get(part.object)!;
     const CONTACT = 0.64;
@@ -330,7 +370,7 @@ export function run3D(root: HTMLElement, finish: () => void) {
       }
     }
     part.object.position.set(home.x, home.y + y, home.z);
-    mesh.rotation.set(tilt[0] * lean, 0, tilt[1] * lean);
+    mesh.rotation.set(pitch + tilt[0] * lean, 0, tilt[1] * lean);
     const opacity = t >= 1 ? 1 : smoothstep(t / 0.5);
     const fading = opacity < 1;
     if (material.transparent !== fading) {
@@ -365,6 +405,7 @@ export function run3D(root: HTMLElement, finish: () => void) {
       style: { opacity: "1" },
       // The cards and the contact keys arrive after the signature, so not on the glass.
       filter: (node) => !(node instanceof HTMLElement && (node.classList.contains("card") || node.classList.contains("contact"))),
+      onCloneNode: onSnapshotClone,
       timeout: 1500,
     })
       .then(

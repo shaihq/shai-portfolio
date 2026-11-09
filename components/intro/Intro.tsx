@@ -35,7 +35,7 @@ export default function Intro({ markup, screen }: { markup: string; screen: Scre
           try {
             stop = run3D(root, finish);
           } catch {
-            root.querySelector(".intro-3d")?.remove();
+            root.querySelectorAll(".intro-3d, .intro-vignette").forEach((el) => el.remove());
             delete root.dataset.mode;
             drawn();
           }

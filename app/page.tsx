@@ -79,7 +79,10 @@ export default function Home() {
         <Mascot />
         <div>
           <h1 className="name">Shai Krishna</h1>
-          <p className="tagline">Staff Product Designer &amp; Design Engineer</p>
+          {/* When it wraps (phones), it breaks after the ampersand, not inside a title. */}
+          <p className="tagline">
+            Staff Product Designer &amp; <span className="nowrap">Design Engineer</span>
+          </p>
         </div>
       </header>
 

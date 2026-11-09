@@ -1,5 +1,6 @@
 import { domToPng } from "modern-screenshot";
 import { fitIntro } from "@/components/stage/fit";
+import { onSnapshotClone } from "./snapshot";
 import type { ScreenGeometry } from "./macintosh";
 
 /*
@@ -172,6 +173,7 @@ export function runIntro(root: HTMLElement, screen: ScreenGeometry, finish: () =
       style: { opacity: "1" },
       // The cards and the contact keys arrive after the signature, so not on the glass.
       filter: (node) => !(node instanceof HTMLElement && (node.classList.contains("card") || node.classList.contains("contact"))),
+      onCloneNode: onSnapshotClone,
       // Never hang on an image that won't load (a lazy one offscreen would wait 30 s).
       timeout: 1500,
     })

@@ -193,6 +193,10 @@ html[data-intro="done"] .signature path {
   color: var(--text-muted);
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
 /* Bio */
 
 .bio {
@@ -255,8 +259,37 @@ html[data-intro="done"] .signature path {
     top: -72px;
   }
 
+  /* Phones: a size gentler on the eyes, the same rhythm as the desktop. */
+  .name {
+    font-size: 21px;
+  }
+
+  .tagline {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
   .bio {
-    font-size: 17.5px;
-    line-height: 32px;
+    margin-top: 26px;
+    font-size: 16px;
+    line-height: 29px;
+  }
+
+  .pill {
+    gap: 5px;
+    height: 26px;
+    padding: 0 7px;
+    margin-right: 3px;
+    border-radius: 7px;
+  }
+
+  .pill-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .tree {
+    margin-top: 26px;
+    font-size: min(13.5px, calc(var(--slider-w) / var(--cols) / 0.625));
   }
 }

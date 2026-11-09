@@ -10,8 +10,8 @@ import { useEffect, useRef, useState } from "react";
  *
  * The cursor's angle from the head picks one of eight directions, with a little
  * hysteresis at the borders so it doesn't flicker; close to the head it looks
- * straight out. A click boops it. Only on devices with a hovering pointer; touch
- * screens see it looking ahead.
+ * straight out. A click boops it. That needs a hovering pointer; on touch screens
+ * the head looks about on its own instead (IDLE).
  */
 
 const SHEET = "/mascot/krish-directions.webp";
@@ -29,6 +29,19 @@ const BOOP: Keyframe[] = [
   { transform: "scale(1, 1)" },
 ];
 
+/**
+ * The touch-screen idle: [pose, ms to hold it]. Never straight ahead: it swings side
+ * to side by way of the low poses, so each change is one step round, never a jump.
+ */
+const IDLE: [Direction, number][] = [
+  ["right", 1500],
+  ["down-right", 1100],
+  ["down-left", 1100],
+  ["left", 1500],
+  ["down-left", 1100],
+  ["down-right", 1100],
+];
+
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const position = (d: Direction) => {
   const i = FRAMES.indexOf(d);
@@ -39,6 +52,41 @@ export default function Mascot({ size = 104, label = "Krish" }: { size?: number;
   const button = useRef<HTMLButtonElement>(null);
   const body = useRef<HTMLSpanElement>(null);
   const [direction, setDirection] = useState<Direction>("center");
+
+  // Touch screens have no cursor to follow: the head looks about on its own, side to
+  // side and a little down on each side, never ahead, up or straight down. It holds
+  // its pose while off screen or the tab is hidden.
+  useEffect(() => {
+    if (matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const el = button.current;
+    if (!el) return;
+    setDirection(IDLE[0]![0]);
+    let step = 1;
+    let timer = 0;
+    let visible = false;
+    const next = () => {
+      const [pose, hold] = IDLE[step % IDLE.length]!;
+      setDirection(pose);
+      step++;
+      timer = window.setTimeout(next, hold + Math.random() * 500);
+    };
+    const run = () => {
+      clearTimeout(timer);
+      if (visible && !document.hidden) timer = window.setTimeout(next, 900);
+    };
+    const seen = new IntersectionObserver(([entry]) => {
+      visible = !!entry?.isIntersecting;
+      run();
+    });
+    seen.observe(el);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      clearTimeout(timer);
+      seen.disconnect();
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, []);
 
   useEffect(() => {
     if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
