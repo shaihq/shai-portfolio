@@ -16,4 +16,6 @@ export const VARIANTS: Record<string, readonly ("av1" | "hevc")[]> = {
   "/projects/sense/version-1.mp4": ["av1", "hevc"],
   "/projects/sense/version-2.mp4": ["av1"],
   "/projects/sense/version-3.mp4": ["av1", "hevc"],
+  // Tapaway (handheld camera footage) has none: no copy reached VMAF 96 and 12% smaller.
+  "/projects/vibecoded/people-of-bengaluru.mp4": ["av1", "hevc"],
 };

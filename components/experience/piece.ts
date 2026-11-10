@@ -45,7 +45,9 @@ interface Folder {
 
 const folders: Folder[] = ROLES.map((r) => ({
   name: `${r.company}/`,
-  kids: [r.title, `${r.from} → ${r.to} · ${r.length}`],
+  // An en dash, not an arrow: Geist Mono has no arrows, and a glyph from another font
+  // is a different width and knocks the grid out of line.
+  kids: [r.title, `${r.from} – ${r.to} · ${r.length}`],
 }));
 const since = ROLES[ROLES.length - 1]!.from.split(" ")[1];
 const SUMMARY = `${ROLES.length} companies · since ${since}`;

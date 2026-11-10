@@ -442,6 +442,11 @@ export function mountStage(els: StageElements) {
   function onTrackClick(e: MouseEvent) {
     const card = (e.target as Element).closest<HTMLElement>("[data-card]");
     if (!card) return;
+    // A live product's card is a plain link to it (a new tab), unless the tap was a swipe.
+    if (card.hasAttribute("data-external")) {
+      if (swiped) e.preventDefault();
+      return;
+    }
     // ⌘/Ctrl/Shift-click or a middle click: the card is a real link, let it be one.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();

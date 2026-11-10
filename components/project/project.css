@@ -89,7 +89,8 @@ html[data-project="open"] .page {
 .pv-flyer {
   position: fixed;
   pointer-events: none;
-  will-change: left, top, width, height;
+  /* Only transform moves it (ProjectView.tsx): the compositor flies it. */
+  will-change: transform;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -30px rgba(0, 0, 0, 0.8);
 }
 
@@ -284,6 +285,12 @@ html[data-project="open"] .page {
 
 .pv-link:hover {
   text-decoration-color: var(--text-strong);
+}
+
+.pv-link-out {
+  display: inline-block;
+  margin-left: 0.3em;
+  vertical-align: -0.05em;
 }
 
 .pv-figure + .pv-figure {

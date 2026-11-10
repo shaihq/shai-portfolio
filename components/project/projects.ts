@@ -77,6 +77,10 @@ export interface Project {
   summary: string;
   details: { label: string; value: string }[];
   story: Block[];
+  /** A live product: its card goes straight to it, in a new tab, and it has no case study. */
+  href?: string;
+  /** A short line over the card, starting a group (the live things). */
+  eyebrow?: string;
 }
 
 const QB = "/projects/quote-builder";
@@ -952,12 +956,12 @@ const sense: Project = {
           label: "Why · success metrics",
           title: "What success looks like",
           tags: [
-            "Lead → applicant conversion",
+            "Lead -> applicant conversion",
             "Top-of-funnel volume",
-            "Job match → hire ratio",
+            "Job match -> hire ratio",
             "AI-generated audiences & campaigns",
             "ARR + TCV",
-            "Career site bounce rate ↓",
+            "Lower career site bounce rate",
           ],
           quote:
             "Assist clients to accurately measure and reduce time to hire by nurturing candidates, saving organizational time, while building a powerful AI-based platform without bias.",
@@ -1061,7 +1065,7 @@ const sense: Project = {
       poster: `${SN}/version-3-poster.jpg`,
       alt: "Version 3: the agent shown as a simple sequence of stages, Greeting, Data, Schedule and Close, with review points for the recruiter",
       ratio: 16 / 10,
-      version: { label: "Version 3", caption: "greeting → data → schedule → close · control where it matters" },
+      version: { label: "Version 3", caption: "greeting -> data -> schedule -> close · control where it matters" },
     },
     { type: "subheading", text: "3. Keep control where it matters." },
     {
@@ -1154,11 +1158,32 @@ const sense: Project = {
   ],
 };
 
+/*
+ * Live things: products out in the world, not case studies. Their cards go straight to
+ * them. Media in public/projects/vibecoded/ (the sources in media-originals/vibecoded/).
+ */
+const VC = "/projects/vibecoded";
+const live = (title: string, file: string, href: string): Project => ({
+  title,
+  // The card adds the ↗ as a drawing (page.tsx): Geist Mono has no arrows.
+  kind: "built with Claude",
+  year: "2026",
+  image: `${VC}/${file}-poster.jpg`,
+  video: { src: `${VC}/${file}.mp4`, poster: `${VC}/${file}-poster.jpg` },
+  href,
+  eyebrow: "~/live · things nobody asked for",
+  summary: "",
+  details: [],
+  story: [],
+});
+
 /** A project's page address: /projects/<slug>. */
 export const slugOf = (p: Project) => p.slug ?? p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export const PROJECTS: Project[] = [
   sense,
+  live("People of Bengaluru", "people-of-bengaluru", "https://peopleofbengaluru.com/"),
+  live("Tapaway", "tapaway", "https://tapaway.today/"),
   quoteBuilder,
   designfolio,
   mycaptain,
@@ -1166,3 +1191,6 @@ export const PROJECTS: Project[] = [
   damnnnn,
   gamification,
 ];
+
+/** The ones with a case study (a page of their own). */
+export const CASE_STUDIES = PROJECTS.filter((p) => !p.href);

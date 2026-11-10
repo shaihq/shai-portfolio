@@ -325,7 +325,12 @@ export function StoryBlock({ block }: { block: Block }) {
       return (
         <p className="pv-reveal pv-p">
           <a className="pv-link" href={block.href} target="_blank" rel="noopener noreferrer">
-            {block.text} ↗
+            {block.text}
+            {/* Drawn, as Geist has no arrows (the LinkedIn key's arrow). */}
+            <svg className="pv-link-out" width="0.8em" height="0.8em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7" />
+              <path d="M8.5 7H17v8.5" />
+            </svg>
           </a>
         </p>
       );

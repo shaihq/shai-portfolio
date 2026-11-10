@@ -4,3 +4,6 @@ out
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store
+
+# The deck videos' sources: too big for git (the web copies are in public/projects/vibecoded)
+media-originals/vibecoded/

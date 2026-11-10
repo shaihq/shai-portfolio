@@ -35,6 +35,74 @@ const boxOf = (el: Element) => {
   const r = el.getBoundingClientRect();
   return { left: r.left, top: r.top, width: r.width, height: r.height, radius: parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 };
 };
+/**
+ * A card's image as the flight needs it: its box as laid out (the card's tilt taken
+ * off) at the page's full size, and the card's tilt (depth, angle, lens, the point it
+ * turns about) and focus blur, so the flyer can take the card's own pose and hand over
+ * to it without a jump. A card off to the side is turned and softened (stage/motion.ts);
+ * the flyer has to arrive turned and softened the same way.
+ *
+ * The page may be receded when this is read (scaled about its transform-origin,
+ * project.css): closing has to land where the card will be once the page is back at
+ * full size, not where it is while the page is small.
+ */
+function cardPose(image: HTMLElement) {
+  const radius = parseFloat(getComputedStyle(image).borderTopLeftRadius) || 0;
+  const page = document.querySelector<HTMLElement>(".page");
+  const pageStyle = page ? getComputedStyle(page) : null;
+  const m = pageStyle && pageStyle.transform !== "none" ? new DOMMatrix(pageStyle.transform) : null;
+  const s = m?.a || 1;
+  const [px, py] = (pageStyle?.transformOrigin ?? "0 0").split(" ").map(parseFloat);
+  const full = (r: DOMRect) => ({
+    left: px! + (r.left - px! - (m?.e ?? 0)) / s,
+    top: py! + (r.top - py! - (m?.f ?? 0)) / s,
+    width: r.width / s,
+    height: r.height / s,
+  });
+
+  const body = image.closest<HTMLElement>(".card-body");
+  const flat = { lens: "perspective(1500px)", z: 0, angle: 0, ox: 0, oy: 0 };
+  if (!body) return { box: { ...full(image.getBoundingClientRect()), radius }, ...flat, filter: null as string | null };
+  const own = getComputedStyle(body);
+  // The tilt as motion.ts writes it: perspective() translateZ() rotateY().
+  const tilt = body.style.transform;
+  const lens = /perspective\([^)]*\)/.exec(tilt)?.[0] ?? flat.lens;
+  const z = parseFloat(/translateZ\(([-\d.]+)px\)/.exec(tilt)?.[1] ?? "0");
+  const angle = parseFloat(/rotateY\(([-\d.]+)deg\)/.exec(tilt)?.[1] ?? "0");
+  // The focus blur of a card off to the side (none in the centre, or on phones).
+  const filter = own.filter && own.filter !== "none" ? own.filter : null;
+  const [bx, by] = own.transformOrigin.split(" ").map(parseFloat);
+  // The image's place with the card's tilt off, read and put back before anything paints.
+  body.style.transform = "none";
+  const box = full(image.getBoundingClientRect());
+  const card = full(body.getBoundingClientRect());
+  body.style.transform = tilt;
+  // The card turns about its own origin: the same point, from the image's corner.
+  return { box: { ...box, radius }, lens, z, angle, ox: card.left + bx! - box.left, oy: card.top + by! - box.top, filter };
+}
+
+/**
+ * The flight, as transforms only, so the compositor runs it and it stays smooth while
+ * the main thread is busy (React builds the case study as the image flies). The flyer
+ * keeps the hero's box throughout; over the card it is moved, scaled down (card and hero
+ * share a shape) and turned with the card's own functions, about the card's own origin.
+ * The same function list at both ends, so each part eases on its own: no matrix
+ * decomposition, no wobble.
+ */
+function flight(pose: ReturnType<typeof cardPose>, hero: ReturnType<typeof boxOf>) {
+  const sx = pose.box.width / hero.width;
+  const sy = pose.box.height / hero.height;
+  const at = (dx: number, dy: number, z: number, angle: number, kx: number, ky: number) =>
+    `translate(${dx}px, ${dy}px) translate(${pose.ox}px, ${pose.oy}px) ${pose.lens} translateZ(${z}px) rotateY(${angle}deg) translate(${-pose.ox}px, ${-pose.oy}px) scale(${kx}, ${ky})`;
+  return {
+    card: at(pose.box.left - hero.left, pose.box.top - hero.top, pose.z, pose.angle, sx, sy),
+    hero: at(0, 0, 0, 0, 1, 1),
+    // Corners: the card's radius at the card's scale, the hero's at full size.
+    cardRadius: `${pose.box.radius / sx}px`,
+    heroRadius: `${hero.radius}px`,
+  };
+}
+
 const frame = (b: ReturnType<typeof boxOf>): Keyframe => ({
   left: `${b.left}px`,
   top: `${b.top}px`,
@@ -87,7 +155,7 @@ export default function ProjectView() {
     pageTitle.current = document.title;
     document.title = `${opened.title} case study | Shai Krishna`;
 
-    const from = boxOf(open.image);
+    const from = cardPose(open.image);
     const to = boxOf(slot.current);
     const fly = flyer.current;
     const done = () => {
@@ -103,12 +171,24 @@ export default function ProjectView() {
       return;
     }
     Object.assign(fly.style, frame(to));
-    const animation = fly.animate([frame(from), frame(to)], { ...OPEN, fill: "both" });
+    // It leaves the card in the card's pose (turned, softened) and straightens on the way.
+    const path = flight(from, to);
+    fly.style.transformOrigin = "0 0";
+    const animation = fly.animate([{ transform: path.card }, { transform: path.hero }], { ...OPEN, fill: "both" });
+    // The corners on their own (they repaint; the move above doesn't wait on them).
+    const corners = fly.animate([{ borderRadius: path.cardRadius }, { borderRadius: path.heroRadius }], { ...OPEN, fill: "both" });
+    // The softness only as it leaves: a blur redrawn every frame of the flight is GPU
+    // work for nothing once it's sharp.
+    const soft = from.filter
+      ? fly.animate([{ filter: from.filter }, { filter: "blur(0px)", offset: 0.25 }, { filter: "none" }], { ...OPEN, fill: "both" })
+      : null;
     const reveal = window.setTimeout(() => setRevealed(true), REVEAL_AFTER);
     animation.onfinish = done;
     return () => {
       clearTimeout(reveal);
       animation.cancel();
+      corners.cancel();
+      soft?.cancel();
     };
   }, [open]);
 
@@ -118,7 +198,8 @@ export default function ProjectView() {
     const html = document.documentElement;
     const fly = flyer.current;
     const from = boxOf(slot.current);
-    const to = boxOf(open.image);
+    // Read before the page starts back to full size (cardPose allows for it).
+    const to = cardPose(open.image);
     panel.current?.querySelectorAll(".pv-reveal[data-in]").forEach((el) => {
       (el as HTMLElement).style.setProperty("--delay", "0ms");
       el.removeAttribute("data-in");
@@ -141,7 +222,15 @@ export default function ProjectView() {
       finish();
       return;
     }
-    const animation = fly.animate([frame(from), frame(to)], { ...CLOSE, delay: FADE_OUT * 0.5, fill: "both" });
+    // It lands in the card's own pose, so handing back to the card changes nothing.
+    const timing = { ...CLOSE, delay: FADE_OUT * 0.5, fill: "both" as const };
+    // The same flight backwards: transforms on the compositor, the corners beside them.
+    const path = flight(to, from);
+    fly.style.transformOrigin = "0 0";
+    const animation = fly.animate([{ transform: path.hero }, { transform: path.card }], timing);
+    fly.animate([{ borderRadius: path.heroRadius }, { borderRadius: path.cardRadius }], timing);
+    // Softened only as it settles into a card off to the side.
+    if (to.filter) fly.animate([{ filter: "none" }, { filter: "blur(0px)", offset: 0.75 }, { filter: to.filter }], timing);
     animation.onfinish = finish;
   }, [open]);
 

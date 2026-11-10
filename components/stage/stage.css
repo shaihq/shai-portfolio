@@ -217,6 +217,26 @@
   color: var(--text-muted);
 }
 
+.card-out {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: -1px;
+}
+
+/* A line over a card that starts a group (the live things): where the group begins. */
+.card-eyebrow {
+  position: absolute;
+  bottom: 100%;
+  left: 2px;
+  margin-bottom: 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /*
  * Layer 3: the slider, carved into the page rather than sitting on it: a pill-shaped
  * well whose top wall throws a deep shadow while its lower and far walls catch the

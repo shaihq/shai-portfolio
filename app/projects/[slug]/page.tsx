@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PROJECTS, slugOf } from "@/components/project/projects";
+import { CASE_STUDIES, PROJECTS, slugOf } from "@/components/project/projects";
 import { StoryBlock } from "@/components/project/story";
 import ProjectPageKeys from "@/components/project/ProjectPageKeys";
 import { getImageProps } from "next/image";
@@ -18,7 +18,7 @@ import "@/components/project/project.css";
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return PROJECTS.map((p) => ({ slug: slugOf(p) }));
+  return CASE_STUDIES.map((p) => ({ slug: slugOf(p) }));
 }
 
 const find = (slug: string) => PROJECTS.findIndex((p) => slugOf(p) === slug);

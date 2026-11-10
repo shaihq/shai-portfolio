@@ -98,8 +98,17 @@ export default function Home() {
   const cards = (
     <Fragment key="cards">
       {PROJECTS.map((project, i) => (
-        <a key={project.title} className="card" href={`/projects/${slugOf(project)}`} data-card draggable={false} style={{ "--i": i } as React.CSSProperties}>
+        <a
+          key={project.title}
+          className="card"
+          // A live product's card goes straight to it (motion.ts lets the link be a link).
+          {...(project.href ? { href: project.href, target: "_blank", rel: "noopener", "data-external": "" } : { href: `/projects/${slugOf(project)}` })}
+          data-card
+          draggable={false}
+          style={{ "--i": i } as React.CSSProperties}
+        >
           <span className="card-body">
+          {project.eyebrow && <span className="card-eyebrow">{project.eyebrow}</span>}
           <span className="card-media">
             {project.video ? (
               <LoopVideo src={project.video.src} poster={project.video.poster} label={project.title} />
@@ -119,6 +128,13 @@ export default function Home() {
             </span>
             <span className="card-kind" data-mini="text">
               {project.kind}
+              {/* Leaves the site: the LinkedIn key's arrow (Geist Mono has no ↗ of its own). */}
+              {project.href && (
+                <svg className="card-out" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 17 17 7" />
+                  <path d="M8.5 7H17v8.5" />
+                </svg>
+              )}
             </span>
           </span>
           </span>
