@@ -144,10 +144,18 @@ const FISH_FRAG = /* glsl */ `
         float m = smoothstep(0.06, -0.06, dot(d, d) - (0.62 + n));
         col = mix(col, uPatchCol[i], m);
       }
-      // Scales: a fine net over the body, behind the head.
+      // Scales: a fine net over the body, behind the head. The net is where the two
+      // diagonal waves cross zero, drawn as hairlines about a pixel wide (darkening
+      // the cells between them instead reads as a checkerboard, coarse on a phone).
+      // Where the scales get finer than a few pixels the net fades out rather than
+      // shimmer.
       float k = uLength * 0.42;
-      float sc = sin(c.x * k + c.y * 7.0) * sin(c.x * k - c.y * 7.0);
-      col *= 1.0 - 0.07 * smoothstep(0.2, 0.9, sc) * smoothstep(0.14, 0.24, c.x);
+      float sa = sin(c.x * k + c.y * 7.0);
+      float sb = sin(c.x * k - c.y * 7.0);
+      float onA = 1.0 - smoothstep(0.0, 1.0, abs(sa) / max(fwidth(sa), 1e-4));
+      float onB = 1.0 - smoothstep(0.0, 1.0, abs(sb) / max(fwidth(sb), 1e-4));
+      float fine = 1.0 - smoothstep(0.35, 0.9, fwidth(c.x * k));
+      col *= 1.0 - 0.1 * max(onA, onB) * fine * smoothstep(0.14, 0.24, c.x);
       // The eyes, with a glint.
       vec2 e = vec2((c.x - 0.075) * uLength, (abs(c.y) - 0.72) * uWidth);
       float eye = 1.0 - smoothstep(uWidth * uEye * 0.8, uWidth * uEye, length(e));
