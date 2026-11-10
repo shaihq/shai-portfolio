@@ -1102,6 +1102,9 @@ export function mountPond(canvas: HTMLCanvasElement) {
   let lastY = 0;
   const onDown = (e: PointerEvent) => {
     if (still || !interactive()) return;
+    // A press on a control (the contact menu, the keys, a card, the slider, the resume
+    // window) is that control's, not a drop in the water.
+    if (e.target instanceof Element && e.target.closest("a, button, [role='slider'], [data-card], .contact, .rs")) return;
     pressed = true;
     lastX = e.clientX;
     lastY = e.clientY;

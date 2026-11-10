@@ -242,6 +242,57 @@ export function playGrab(down: boolean, pan = 0) {
   thud(c, t, out, down ? 210 : 250, 120, 0.15 * g, 0.035);
 }
 
+/*
+ * The contact key and its panel (Contact.tsx), from the same parts.
+ *
+ *   latch   the key opening: a lever snapping free, a small spring tick, then the
+ *           body landing (a muffled knock with a little mass): "ka-chunk". Shutting
+ *           runs the other way: pressed down first, then the catch clicking home.
+ *   select  a row pressed: a crisp key click and its knock; a lighter one let go.
+ *   tick    the highlight arriving on a row: barely there, and never faster than a
+ *           tick every 45 ms, so a quick sweep across the rows doesn't rattle.
+ */
+export function playLatch(open: boolean) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const out = voice(c, -0.35);
+  if (open) {
+    hit(c, t, out, { gain: 0.5, decay: 0.006, hp: 2000 * rand(0.06), lp: 7200 });
+    hit(c, t + 0.011, out, { gain: 0.14, decay: 0.008, band: 3300 * rand(0.06), q: 2.4 });
+    hit(c, t + 0.046, out, { gain: 0.42, decay: 0.03, band: 520 * rand(0.06), q: 1.4 });
+    hit(c, t + 0.048, out, { gain: 0.12, decay: 0.004, hp: 1500, lp: 5200 });
+    thud(c, t + 0.046, out, 140 * rand(0.05), 68, 0.16, 0.05);
+  } else {
+    hit(c, t, out, { gain: 0.32, decay: 0.022, band: 600 * rand(0.06), q: 1.5 });
+    thud(c, t, out, 165 * rand(0.05), 92, 0.12, 0.035);
+    hit(c, t + 0.034, out, { gain: 0.42, decay: 0.005, hp: 2200 * rand(0.06), lp: 7600 });
+    hit(c, t + 0.041, out, { gain: 0.1, decay: 0.004, hp: 2600, lp: 7000 });
+  }
+}
+
+export function playSelect(down: boolean) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const out = voice(c, -0.3);
+  const g = down ? 1 : 0.55;
+  hit(c, t, out, { gain: 0.42 * g, decay: 0.005, hp: 1800 * rand(0.06), lp: 6800 });
+  hit(c, t, out, { gain: 0.2 * g, decay: 0.014, band: 900 * rand(0.06), q: 1.8 });
+  thud(c, t, out, down ? 185 : 215, 115, 0.08 * g, 0.03);
+}
+
+let lastTick = 0;
+export function playTick() {
+  const c = ready();
+  if (!c) return;
+  const now = performance.now();
+  if (now - lastTick < 45) return;
+  lastTick = now;
+  const out = voice(c, -0.3);
+  hit(c, c.currentTime, out, { gain: 0.06, decay: 0.003, band: 5200 * rand(0.08), q: 2 });
+}
+
 export function buzz(ms: number) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(ms);
 }

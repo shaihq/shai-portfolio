@@ -393,7 +393,7 @@ export function mountStage(els: StageElements) {
 
   function onKey(e: KeyboardEvent) {
     const html = document.documentElement;
-    if (html.dataset.intro === "on" || html.dataset.project === "open" || e.defaultPrevented) return;
+    if (html.dataset.intro === "on" || html.dataset.project === "open" || html.dataset.resume === "open" || e.defaultPrevented) return;
     if (e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
     if (e.target === els.slider) return;
     onSliderKey(e);

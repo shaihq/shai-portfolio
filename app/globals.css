@@ -293,3 +293,42 @@ html[data-intro="done"] .signature path {
     font-size: min(13.5px, calc(var(--slider-w) / var(--cols) / 0.625));
   }
 }
+
+/* Desktop: the intro a touch larger (about a tenth), in the same column. */
+@media (min-width: 1024px) {
+  .name {
+    font-size: 27px;
+  }
+
+  .tagline {
+    margin-top: 7px;
+    font-size: 15px;
+  }
+
+  .bio {
+    margin-top: 32px;
+    font-size: 21px;
+    line-height: 39px;
+  }
+
+  .pill {
+    height: 33px;
+    padding: 0 9px;
+  }
+
+  .pill-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .tree {
+    margin-top: 32px;
+    font-size: min(17px, calc(var(--slider-w) / var(--cols) / 0.625));
+  }
+
+  /* The photo (its size is set on the element, Mascot.tsx). */
+  .mascot {
+    width: 114px !important;
+    height: 114px !important;
+  }
+}

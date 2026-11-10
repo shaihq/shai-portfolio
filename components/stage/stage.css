@@ -471,20 +471,18 @@ html[data-intro="done"] .card {
 }
 
 /*
- * Contact (Contact.tsx): two keys in the top corners of the window. The keys are the
- * knob's dark plastic, lit from above, standing on a short side that disappears as
- * they go down.
+ * Contact (Contact.tsx): one chrome key in the top-left corner that grows into a panel
+ * of the same band and glass, its label staying put as the panel's title.
  */
 .contact {
   position: fixed;
   top: calc(18px + env(safe-area-inset-top));
   left: calc(20px + env(safe-area-inset-left));
-  right: calc(20px + env(safe-area-inset-right));
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
 }
 
-/* Not on the page the intro shows on the computer's screen either: they come after
+/* Not on the page the intro shows on the computer's screen either: it comes after
    the signature. */
 html[data-intro="on"] .contact {
   visibility: hidden;
@@ -505,35 +503,14 @@ html[data-intro="done"] .contact {
   }
 }
 
-.contact-well {
-  display: flex;
-  justify-content: space-between;
-}
-
-.contact-key {
-  display: block;
-  pointer-events: auto;
-  padding: 0 0 3px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.contact-key:focus {
-  outline: none;
-}
-
 /*
  * The cap: a dark glossy capsule in a chrome band, standing on a short side. The band
  * is a conic gradient on the border, lit by the site's key light (up and to the left):
  * silver all round, white toward the light and opposite it, a thin prismatic glint
  * just past each highlight, and shaded across its thickness (lit along the top, in
  * shadow beneath). The glass sits a little below the band, domed, with a faint
- * reflection along its underside.
+ * reflection along its underside. Opened, the same cap is the panel: only its size
+ * changes (Contact.tsx animates it), so the band runs round the panel's edge.
  *
  * Under the pointer the light slides a little way along the band and back (--band),
  * the key rises a hair and its glass brightens.
@@ -549,20 +526,21 @@ html[data-intro="done"] .contact {
   --peak: #f2f4f7;
   --fill: linear-gradient(180deg, #2a2c31 0%, #1a1b1f 52%, #121316 100%);
   /* where the band meets the glass, the band's shadow across the glass, then the key's
-     black rim and lit lip, its side, and its shadow on the page */
+     black rim and lit lip */
   --seat: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 3px 4px -1px rgba(0, 0, 0, 0.55), 0 0 0 1px #050607, 0 0 0 1.5px rgba(255, 255, 255, 0.07);
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 40px;
-  padding: 0 6px 0 14px;
+  flex-direction: column;
+  width: max-content;
+  overflow: hidden;
   border: 3.5px solid transparent;
-  border-radius: 999px;
+  border-radius: 20px;
+  pointer-events: auto;
   background:
-    radial-gradient(130% 75% at 50% -8%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 52%, rgba(255, 255, 255, 0) 70%) padding-box,
-    radial-gradient(90% 40% at 50% 112%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 70%) padding-box,
+    radial-gradient(130% 40px at 50% -8px, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 52%, rgba(255, 255, 255, 0) 70%) padding-box,
+    radial-gradient(90% 18px at 50% calc(100% + 4px), rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 70%) padding-box,
     var(--fill) padding-box,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 42%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.45)) border-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 20px, rgba(0, 0, 0, 0) calc(100% - 20px), rgba(0, 0, 0, 0.45)) border-box,
     conic-gradient(
         from var(--band),
         #4d5259 0deg,
@@ -592,17 +570,27 @@ html[data-intro="done"] .contact {
     0 4px 1px rgba(0, 0, 0, 0.5),
     0 7px 12px rgba(0, 0, 0, 0.5);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
-  transition: transform 0.09s ease, box-shadow 0.09s ease;
+  transition:
+    transform 0.09s ease,
+    box-shadow 0.09s ease;
 }
 
-.contact-key:hover .contact-cap {
-  --peak: #ffffff;
-  --fill: linear-gradient(180deg, #303238 0%, #1e2024 52%, #15161a 100%);
+/* Open, the panel sets its own width and floats a little higher off the page. */
+.contact-cap[data-open] {
+  width: 268px;
+  max-width: calc(100vw - 40px);
+  box-shadow:
+    var(--seat),
+    0 3px 0 #0b0c0e,
+    0 6px 2px rgba(0, 0, 0, 0.45),
+    0 18px 34px rgba(0, 0, 0, 0.55);
 }
 
-/* Only with a real pointer: a tap would leave the hover stuck on. */
+/* Only with a real pointer, and only as a key: a tap would leave the hover stuck on. */
 @media (hover: hover) and (pointer: fine) {
-  .contact-key:hover .contact-cap {
+  .contact-cap:not([data-open]):hover {
+    --peak: #ffffff;
+    --fill: linear-gradient(180deg, #303238 0%, #1e2024 52%, #15161a 100%);
     transform: translateY(-1px);
     box-shadow:
       var(--seat),
@@ -626,8 +614,9 @@ html[data-intro="done"] .contact {
   }
 }
 
-.contact-key[data-down] .contact-cap,
-.contact-key:active .contact-cap {
+/* Pressed (or its letter held), the key goes down onto its side. */
+.contact-cap[data-down]:not([data-open]),
+.contact-cap:not([data-open]):has(.contact-head:active) {
   transition-duration: 0.09s;
   transform: translateY(3px);
   box-shadow:
@@ -637,12 +626,49 @@ html[data-intro="done"] .contact {
     0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
-.contact-key:focus-visible .contact-cap {
-  outline: 1px solid var(--text-muted);
-  outline-offset: 6px;
+/* The key's face, and the panel's title once open. */
+.contact-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+  height: 33px;
+  padding: 0 13px 0 15px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* The label: its two faces (copy email / copied) share one place, so the key never resizes. */
+.contact-head:focus {
+  outline: none;
+}
+
+.contact-head:focus-visible {
+  outline: 1px solid var(--text-muted);
+  outline-offset: -5px;
+  border-radius: 14px;
+}
+
+.contact-head:hover {
+  color: var(--text-strong);
+}
+
+.contact-chevron {
+  flex: none;
+  color: var(--icon);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.contact-cap[data-open] .contact-chevron {
+  transform: rotate(180deg);
+}
+
+/* The label: its two faces (contact / copied) share one place, so the key never resizes. */
 .contact-label {
   display: grid;
   font-family: var(--mono);
@@ -658,16 +684,13 @@ html[data-intro="done"] .contact {
   align-items: center;
   gap: 7px;
   white-space: nowrap;
-  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .contact-face svg {
-  color: var(--icon);
   flex: none;
-}
-
-.contact-key:hover .contact-face {
-  color: var(--text-strong);
 }
 
 .contact-face-done {
@@ -676,21 +699,144 @@ html[data-intro="done"] .contact {
   color: var(--text-strong);
 }
 
-.contact-face-done svg {
-  color: var(--text-strong);
-}
-
-.contact-key[data-done] .contact-face:not(.contact-face-done) {
+.contact-face:not(.contact-face-done)[aria-hidden="true"] {
   opacity: 0;
   transform: translateY(-5px);
 }
 
-.contact-key[data-done] .contact-face-done {
+.contact-face-done[aria-hidden="false"] {
   opacity: 1;
   transform: none;
 }
 
-/* The shortcut, engraved into the key. */
+/* ------------------------------------------------------------ the panel's rows */
+
+/* The rows, in a well under the title, with the one highlight beneath them. */
+.contact-ways {
+  position: relative;
+  padding: 6px 6px 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.contact-list {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * The highlight: it glides to the row under the pointer and takes its height, on the
+ * site's spring-like ease, rather than each row lighting up on its own (Contact.tsx
+ * places it). With a mouse only; touch screens have no hover to follow.
+ */
+.contact-glide {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  right: 6px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease;
+}
+
+.contact-glide[data-on] {
+  opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .contact-glide {
+    display: none;
+  }
+}
+
+.contact-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 7px 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 0.15s ease,
+    transform 0.09s ease;
+}
+
+.contact-row:focus-visible {
+  outline: none;
+}
+
+/* The row itself only brightens and goes down a hair; the highlight is beneath it. */
+@media (hover: hover) and (pointer: fine) {
+  .contact-row:hover {
+    color: var(--text-strong);
+  }
+}
+
+.contact-row:focus-visible {
+  color: var(--text-strong);
+}
+
+.contact-row[data-down],
+.contact-row:active {
+  color: var(--text-strong);
+  transform: translateY(1px);
+}
+
+.contact-row[data-done] {
+  color: var(--text-strong);
+}
+
+.contact-row-icon {
+  display: grid;
+  place-items: center;
+  color: var(--icon);
+}
+
+.contact-row[data-done] .contact-row-icon,
+.contact-row:focus-visible .contact-row-icon {
+  color: var(--text-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .contact-row:hover .contact-row-icon {
+    color: var(--text-strong);
+  }
+}
+
+.contact-row-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The row's letter, engraved into the glass. */
 .contact-kbd {
   display: grid;
   place-items: center;
@@ -703,7 +849,9 @@ html[data-intro="done"] .contact {
   line-height: 1;
   color: var(--text-muted);
   background: rgba(0, 0, 0, 0.3);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.65),
+    0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .contact-status {
@@ -715,14 +863,14 @@ html[data-intro="done"] .contact {
   white-space: nowrap;
 }
 
-/* No keyboard, no shortcuts to show. */
+/* No keyboard, no letters to show. */
 @media (hover: none) and (pointer: coarse) {
   .contact-kbd {
     display: none;
   }
 
-  .contact-cap {
-    padding: 0 15px;
+  .contact-row {
+    height: 42px;
   }
 }
 
@@ -736,8 +884,42 @@ html[data-intro="done"] .contact {
     transform: none !important;
   }
 
-  /* No light running round the band: hovering only brightens it. */
-  .contact-key:hover .contact-cap {
+  .contact-cap:hover {
     animation: none !important;
+  }
+}
+
+/* Desktop: the key and its panel a touch larger, with the intro. */
+@media (min-width: 1024px) {
+  .contact-head {
+    height: 36px;
+    padding: 0 14px 0 17px;
+  }
+
+  .contact-label,
+  .contact-row {
+    font-size: 14px;
+  }
+
+  .contact-cap[data-open] {
+    width: 292px;
+  }
+
+  .contact-row {
+    height: 39px;
+    grid-template-columns: 17px 1fr auto;
+  }
+
+  .contact-row-icon svg,
+  .contact-face svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .contact-kbd {
+    width: 23px;
+    height: 23px;
+    border-radius: 12px;
+    font-size: 11.5px;
   }
 }
