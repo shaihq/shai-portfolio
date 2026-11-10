@@ -513,7 +513,7 @@ html[data-intro="done"] .contact {
 .contact-key {
   display: block;
   pointer-events: auto;
-  padding: 0 0 2px;
+  padding: 0 0 3px;
   border: 0;
   background: none;
   color: var(--text);
@@ -527,46 +527,119 @@ html[data-intro="done"] .contact {
   outline: none;
 }
 
+/*
+ * The cap: a dark glossy capsule in a chrome band, standing on a short side. The band
+ * is a conic gradient on the border, lit by the site's key light (up and to the left):
+ * silver all round, white toward the light and opposite it, a thin prismatic glint
+ * just past each highlight, and shaded across its thickness (lit along the top, in
+ * shadow beneath). The glass sits a little below the band, domed, with a faint
+ * reflection along its underside.
+ *
+ * Under the pointer the light slides a little way along the band and back (--band),
+ * the key rises a hair and its glass brightens.
+ */
+@property --band {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: -95deg;
+}
+
 .contact-cap {
+  --band: -95deg;
+  --peak: #f2f4f7;
+  --fill: linear-gradient(180deg, #2a2c31 0%, #1a1b1f 52%, #121316 100%);
+  /* where the band meets the glass, the band's shadow across the glass, then the key's
+     black rim and lit lip, its side, and its shadow on the page */
+  --seat: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 3px 4px -1px rgba(0, 0, 0, 0.55), 0 0 0 1px #050607, 0 0 0 1.5px rgba(255, 255, 255, 0.07);
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 34px;
-  padding: 0 6px 0 13px;
-  border-radius: 17px;
-  background-color: #25282c;
-  background-image: linear-gradient(180deg, #3b3f44 0%, #2b2e33 42%, #212428 78%, #1b1e21 100%);
+  height: 40px;
+  padding: 0 6px 0 14px;
+  border: 3.5px solid transparent;
+  border-radius: 999px;
+  background:
+    radial-gradient(130% 75% at 50% -8%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 52%, rgba(255, 255, 255, 0) 70%) padding-box,
+    radial-gradient(90% 40% at 50% 112%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 70%) padding-box,
+    var(--fill) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 42%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.45)) border-box,
+    conic-gradient(
+        from var(--band),
+        #4d5259 0deg,
+        #9298a0 22deg,
+        var(--peak) 42deg,
+        #ffffff 50deg,
+        #ffc2a6 53deg,
+        #a8ecff 55.5deg,
+        #c4b5ff 57.5deg,
+        #e6e9ed 61deg,
+        #9a9fa7 88deg,
+        #3a3e44 135deg,
+        #5f646c 188deg,
+        #bfc4cb 216deg,
+        #f6f7f9 229deg,
+        #a8ecff 232deg,
+        #c4b5ff 234deg,
+        #a4aab2 246deg,
+        #3c4046 302deg,
+        #4d5259 360deg
+      )
+      border-box;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(0, 0, 0, 0.7),
-    /* the key's side, then its shadow on the well floor */
-    0 2px 0 #0d0f11,
-    0 3px 1px rgba(0, 0, 0, 0.5),
-    0 5px 9px rgba(0, 0, 0, 0.45);
-  transition: transform 0.09s ease, box-shadow 0.09s ease, background-color 0.2s ease;
+    var(--seat),
+    /* the key's side, then its shadow on the page */
+    0 3px 0 #0b0c0e,
+    0 4px 1px rgba(0, 0, 0, 0.5),
+    0 7px 12px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+  transition: transform 0.09s ease, box-shadow 0.09s ease;
 }
 
 .contact-key:hover .contact-cap {
-  background-color: #2b2e33;
-  background-image: linear-gradient(180deg, #42464c 0%, #30343a 42%, #25282d 78%, #1d2023 100%);
+  --peak: #ffffff;
+  --fill: linear-gradient(180deg, #303238 0%, #1e2024 52%, #15161a 100%);
+}
+
+/* Only with a real pointer: a tap would leave the hover stuck on. */
+@media (hover: hover) and (pointer: fine) {
+  .contact-key:hover .contact-cap {
+    transform: translateY(-1px);
+    box-shadow:
+      var(--seat),
+      0 4px 0 #0b0c0e,
+      0 5px 1px rgba(0, 0, 0, 0.5),
+      0 10px 16px rgba(0, 0, 0, 0.5),
+      0 0 14px rgba(255, 255, 255, 0.035);
+    transition-duration: 0.25s;
+    animation: band-sweep 1.3s ease-in-out;
+  }
+}
+
+/* The light slides a little way along the band and settles back. */
+@keyframes band-sweep {
+  0%,
+  100% {
+    --band: -95deg;
+  }
+  50% {
+    --band: -55deg;
+  }
 }
 
 .contact-key[data-down] .contact-cap,
 .contact-key:active .contact-cap {
-  transform: translateY(2px);
+  transition-duration: 0.09s;
+  transform: translateY(3px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(0, 0, 0, 0.75),
-    0 0 0 #0d0f11,
+    var(--seat),
+    0 0 0 #0b0c0e,
     0 1px 1px rgba(0, 0, 0, 0.55),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+    0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 .contact-key:focus-visible .contact-cap {
   outline: 1px solid var(--text-muted);
-  outline-offset: 7px;
+  outline-offset: 6px;
 }
 
 /* The label: its two faces (copy email / copied) share one place, so the key never resizes. */
@@ -649,7 +722,7 @@ html[data-intro="done"] .contact {
   }
 
   .contact-cap {
-    padding: 0 14px;
+    padding: 0 15px;
   }
 }
 
@@ -661,5 +734,10 @@ html[data-intro="done"] .contact {
   .contact-face {
     transition: opacity 0.15s ease;
     transform: none !important;
+  }
+
+  /* No light running round the band: hovering only brightens it. */
+  .contact-key:hover .contact-cap {
+    animation: none !important;
   }
 }
