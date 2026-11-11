@@ -1,4 +1,5 @@
 import { buzz, playBump, playDetent, playGrab, playGrit, setSlide, unlockSound } from "./sound";
+import { track } from "@/lib/track";
 
 /*
  * The stage: the intro stays pinned in the centre, the project cards slide over it
@@ -444,7 +445,8 @@ export function mountStage(els: StageElements) {
     if (!card) return;
     // A live product's card is a plain link to it (a new tab), unless the tap was a swipe.
     if (card.hasAttribute("data-external")) {
-      if (swiped) e.preventDefault();
+      if (swiped) return void e.preventDefault();
+      track("live_project_click", { project: card.querySelector(".card-title")?.textContent?.trim() ?? "" });
       return;
     }
     // ⌘/Ctrl/Shift-click or a middle click: the card is a real link, let it be one.

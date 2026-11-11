@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EMAIL, LINKEDIN, MENTORSHIP } from "@/lib/site";
 import { playLatch, playSelect, playTick, unlockSound } from "./sound";
+import { track } from "@/lib/track";
 import Resume from "./Resume";
 
 /*
@@ -244,6 +245,7 @@ export default function Contact() {
   const act = useCallback(
     async (way: Way) => {
       unlockSound();
+      track("contact", { method: way });
       if (way === "linkedin") return void window.open(LINKEDIN, "_blank", "noopener,noreferrer");
       if (way === "mentorship") return void window.open(MENTORSHIP, "_blank", "noopener,noreferrer");
       if (way === "resume") {
@@ -351,7 +353,7 @@ export default function Contact() {
     return (
       <li key={way}>
         {extra.href ? (
-          <a {...common} href={extra.href} target={extra.external ? "_blank" : undefined} rel={extra.external ? "noopener noreferrer" : undefined}>
+          <a {...common} href={extra.href} target={extra.external ? "_blank" : undefined} rel={extra.external ? "noopener noreferrer" : undefined} onClick={() => track("contact", { method: way })}>
             {content}
           </a>
         ) : (

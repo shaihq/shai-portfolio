@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { getImageProps } from "next/image";
 import { RESUME } from "@/lib/site";
 import { playGrab, unlockSound } from "./sound";
+import { track } from "@/lib/track";
 import "./resume.css";
 
 /*
@@ -355,13 +356,13 @@ export default function Resume({ from, home, onClosed }: { from: DOMRect; home: 
   const actions = (
     <span className="rs-actions">
       {zoomBar}
-      <a className="rs-action" href={RESUME.pdf} download="Shai-Krishna-Resume.pdf" aria-label="Download PDF">
+      <a className="rs-action" href={RESUME.pdf} download="Shai-Krishna-Resume.pdf" aria-label="Download PDF" onClick={() => track("resume_download")}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
         </svg>
         <span className="rs-action-label">download</span>
       </a>
-      <a className="rs-action" href={RESUME.pdf} target="_blank" rel="noopener noreferrer" aria-label="Open PDF">
+      <a className="rs-action" href={RESUME.pdf} target="_blank" rel="noopener noreferrer" aria-label="Open PDF" onClick={() => track("resume_open_pdf")}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M7 17 17 7" />
           <path d="M8.5 7H17v8.5" />

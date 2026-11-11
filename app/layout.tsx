@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import Film from "@/components/film/Film";
-import { DESCRIPTION, EMAIL, LINKEDIN, NAME, SITE, TITLE } from "@/lib/site";
+import { DESCRIPTION, EMAIL, GTM_ID, LINKEDIN, NAME, SITE, TITLE } from "@/lib/site";
+
+// Analytics only from the built site, so working on it locally isn't counted as visits.
+const ANALYTICS = process.env.NODE_ENV === "production";
 
 // Geist Sans reads (names, sentences, titles); Geist Mono labels (numbers, metadata,
 // the file tree). Both self-hosted by next/font, no request to Google at runtime.
@@ -55,6 +59,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </noscript>
       </head>
       <body>
+        {ANALYTICS && (
+          <>
+            {/* Google Tag Manager (it loads Google Analytics), once the page is interactive. */}
+            <Script id="gtm" strategy="afterInteractive">
+              {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`}
+            </Script>
+            <noscript>
+              <iframe src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`} height="0" width="0" style={{ display: "none", visibility: "hidden" }} title="Google Tag Manager" />
+            </noscript>
+          </>
+        )}
         {/* Who this is and what the site is, for search engines. */}
         <script
           type="application/ld+json"

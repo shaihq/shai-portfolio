@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { PROJECTS, slugOf } from "./projects";
 import { StoryBlock } from "./story";
 import LoopVideo from "@/components/media/LoopVideo";
+import { track } from "@/lib/track";
 import "./project.css";
 
 /*
@@ -131,6 +132,8 @@ export default function ProjectView() {
     const onOpen = (e: Event) => {
       if (busy.current || open) return;
       const detail = (e as CustomEvent<OpenDetail>).detail;
+      const opened = PROJECTS[detail.index];
+      if (opened) track("case_study_open", { project: slugOf(opened) });
       busy.current = true;
       setRevealed(false);
       setLanded(false);

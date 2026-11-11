@@ -20,3 +20,5 @@ export const RESUME = {
   /** The page's one link (its portfolio link), as fractions of the page. */
   link: { href: "https://shai-portfolio-eta.vercel.app/", left: 0.051, top: 0.0973, width: 0.1725, height: 0.0224 },
 };
+/** Google Tag Manager: the container that loads Google Analytics (layout.tsx, lib/track.ts). */
+export const GTM_ID = "GTM-WHM2V5BS";
